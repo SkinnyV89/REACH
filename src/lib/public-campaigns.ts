@@ -125,7 +125,8 @@ export async function createLeadWithLimits(args: {
   scopeKey: string; // which public page the limit applies to
   sellerCampaignId: string | null;
   productId: string | null;
-  source: "CAMPAIGN_PAGE" | "STOREFRONT" | "PRODUCT";
+  postId?: string | null;
+  source: "CAMPAIGN_PAGE" | "STOREFRONT" | "PRODUCT" | "POST";
   input: LeadFormInput;
   attribution: { channel: Channel; utmSource: string | null };
   ipHash: string;
@@ -142,7 +143,9 @@ export async function createLeadWithLimits(args: {
     where: {
       sellerId: args.sellerId,
       contact: args.input.contact,
-      ...(args.sellerCampaignId ? { sellerCampaignId: args.sellerCampaignId } : { productId: args.productId }),
+      ...(args.sellerCampaignId
+        ? { sellerCampaignId: args.sellerCampaignId }
+        : { productId: args.productId, postId: args.postId ?? null }),
       createdAt: { gte: new Date(Date.now() - duplicateHours * 3600_000) },
     },
     select: { id: true },
@@ -155,6 +158,7 @@ export async function createLeadWithLimits(args: {
         sellerId: args.sellerId,
         sellerCampaignId: args.sellerCampaignId,
         productId: args.productId,
+        postId: args.postId ?? null,
         name: args.input.name,
         contact: args.input.contact,
         message: args.input.message,

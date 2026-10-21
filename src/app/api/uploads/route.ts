@@ -10,8 +10,9 @@ import { getCurrentSeller, getSession } from "@/lib/session";
 export const runtime = "nodejs";
 
 const fieldsSchema = z.object({
-  target: z.enum(["logo", "cover", "product"]),
+  target: z.enum(["logo", "cover", "product", "post"]),
   productId: z.uuid().nullable(),
+  postId: z.uuid().nullable(),
   altText: altTextSchema.nullable(),
   peopleConsent: z.literal("on").nullable(),
 });
@@ -52,6 +53,7 @@ export async function POST(request: Request) {
   const fields = fieldsSchema.safeParse({
     target: form.get("target"),
     productId: form.get("productId") || null,
+    postId: form.get("postId") || null,
     altText: form.get("altText") ?? null,
     peopleConsent: form.get("peopleConsent") ?? null,
   });
@@ -65,6 +67,9 @@ export async function POST(request: Request) {
       sellerId: seller.id, // from the session, never from the request
       target: fields.data.target,
       productId: fields.data.target === "product" ? fields.data.productId : null,
+      postId: fields.data.target === "post" ? fields.data.postId : null,
+      // Note: how the photo was captured is decided on the server (always
+      // "from gallery" for this route); nothing the browser sends can change it.
       data: Buffer.from(await file.arrayBuffer()),
       altText: fields.data.altText,
       peopleConsent: fields.data.peopleConsent === "on",

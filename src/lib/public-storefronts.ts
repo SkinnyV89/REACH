@@ -2,6 +2,7 @@ import "server-only";
 import { db } from "@/lib/db";
 import type { Channel, LeadFormInput } from "@/lib/lead-rules";
 import { createLeadWithLimits, type SubmitResult } from "@/lib/public-campaigns";
+import { MAX_POST_TAGS, POST_CODE_RE } from "@/lib/post-rules";
 import { ITEM_SLUG_RE, shareCodeOf } from "@/lib/storefront-rules";
 
 // Public storefronts (/s/<seller>) and item pages (/s/<seller>/<item>).
@@ -156,20 +157,27 @@ export async function findCampaignForStorefront(sellerId: string, code: string |
   return campaign && shareCodeOf(campaign.uniqueLink) === code ? campaign : null;
 }
 
-// Enquiry from a published storefront or one of its items.
+// Enquiry from a published storefront, one of its items, or one of its posts
+// (postCode; then itemSlug is ignored).
 export async function submitStorefrontLead(
   sellerSlug: string,
   itemSlug: string | null,
   input: LeadFormInput,
   attribution: { channel: Channel; utmSource: string | null; campaignCode: string | null },
   ipHash: string,
+  postCode: string | null = null,
 ): Promise<SubmitResult> {
   const seller = await findSeller(sellerSlug);
   if (!seller) return { ok: false, reason: "not_found" };
   if (!isPublished(seller)) return { ok: false, reason: "unavailable" };
 
   let productId: string | null = null;
-  if (itemSlug) {
+  let postId: string | null = null;
+  if (postCode) {
+    const post = await findPublishedPost(seller.id, postCode);
+    if (!post) return { ok: false, reason: "not_found" };
+    postId = post.id;
+  } else if (itemSlug) {
     const item = await db.product.findFirst({
       where: { sellerId: seller.id, slug: itemSlug, status: { not: "ARCHIVED" } },
       select: { id: true },
@@ -184,7 +192,8 @@ export async function submitStorefrontLead(
     scopeKey: `s:${seller.id}`,
     sellerCampaignId: campaign?.id ?? null,
     productId,
-    source: productId ? "PRODUCT" : "STOREFRONT",
+    postId,
+    source: postId ? "POST" : productId ? "PRODUCT" : "STOREFRONT",
     input,
     attribution: { channel: attribution.channel, utmSource: attribution.utmSource },
     ipHash,
@@ -202,6 +211,7 @@ const DEDUPE_MINUTES = { VIEW: 30, WHATSAPP_CLICK: 1 } as const;
 export async function recordStorefrontEvent(args: {
   sellerSlug: string;
   itemSlug: string | null;
+  postCode?: string | null; // a post page (then itemSlug is ignored)
   sessionId: string;
   type: "VIEW" | "WHATSAPP_CLICK";
   channel: Channel;
@@ -211,7 +221,12 @@ export async function recordStorefrontEvent(args: {
   if (!seller || !isPublished(seller)) return false;
 
   let productId: string | null = null;
-  if (args.itemSlug) {
+  let postId: string | null = null;
+  if (args.postCode) {
+    const post = await findPublishedPost(seller.id, args.postCode);
+    if (!post) return false;
+    postId = post.id;
+  } else if (args.itemSlug) {
     const item = await db.product.findFirst({
       where: { sellerId: seller.id, slug: args.itemSlug, status: { not: "ARCHIVED" } },
       select: { id: true },
@@ -219,7 +234,7 @@ export async function recordStorefrontEvent(args: {
     if (!item) return false;
     productId = item.id;
   }
-  const target = productId ? ("PRODUCT" as const) : ("STOREFRONT" as const);
+  const target = postId ? ("POST" as const) : productId ? ("PRODUCT" as const) : ("STOREFRONT" as const);
   const campaign = await findCampaignForStorefront(seller.id, args.campaignCode);
 
   const seen = await db.attributionEvent.findFirst({
@@ -228,6 +243,7 @@ export async function recordStorefrontEvent(args: {
       sellerId: seller.id,
       target,
       productId,
+      postId,
       eventType: args.type,
       occurredAt: { gte: new Date(Date.now() - DEDUPE_MINUTES[args.type] * 60_000) },
     },
@@ -240,6 +256,7 @@ export async function recordStorefrontEvent(args: {
       sellerId: seller.id,
       sellerCampaignId: campaign?.id ?? null,
       productId,
+      postId,
       target,
       eventType: args.type,
       channel: args.channel,
@@ -250,16 +267,101 @@ export async function recordStorefrontEvent(args: {
 
 // For /go/wa: the seller's number for a published storefront, plus the
 // item name to mention in the greeting. Stays on the server.
-export async function getWhatsappTarget(sellerSlug: string, itemSlug: string | null) {
+export async function getWhatsappTarget(sellerSlug: string, itemSlug: string | null, postCode: string | null = null) {
   const seller = await findSeller(sellerSlug);
   if (!seller || !isPublished(seller) || !seller.whatsappNumber) return null;
   let itemName: string | null = null;
-  if (itemSlug && ITEM_SLUG_RE.test(itemSlug)) {
+  let fromPost = false;
+  if (postCode) {
+    fromPost = Boolean(await findPublishedPost(seller.id, postCode));
+  } else if (itemSlug && ITEM_SLUG_RE.test(itemSlug)) {
     const item = await db.product.findFirst({
       where: { sellerId: seller.id, slug: itemSlug, status: { not: "ARCHIVED" } },
       select: { name: true },
     });
     itemName = item?.name ?? null;
   }
-  return { sellerId: seller.id, businessName: seller.businessName, whatsappNumber: seller.whatsappNumber, itemName };
+  return { sellerId: seller.id, businessName: seller.businessName, whatsappNumber: seller.whatsappNumber, itemName, fromPost };
+}
+
+// ---------------------------------------------------------------------------
+// Proof Posts on the storefront. Only PUBLISHED posts with at least one photo
+// are public, and only while the storefront itself is published.
+// ---------------------------------------------------------------------------
+
+const publicPostPhotoSelect = { ...publicPhotoSelect, captureSource: true, capturedAt: true } as const;
+
+async function findPublishedPost(sellerId: string, code: string) {
+  if (!POST_CODE_RE.test(code)) return null;
+  return db.post.findFirst({
+    where: { sellerId, code, status: "PUBLISHED", media: { some: {} } },
+    select: { id: true },
+  });
+}
+
+// Grid tiles: newest first, with the first photo and the photo count.
+export async function listPublicPosts(sellerId: string, { take, skip = 0 }: { take: number; skip?: number }) {
+  const where = { sellerId, status: "PUBLISHED" as const, media: { some: {} } };
+  const [posts, total] = await Promise.all([
+    db.post.findMany({
+      where,
+      orderBy: [{ publishedAt: "desc" }, { id: "desc" }],
+      take,
+      skip,
+      select: {
+        code: true,
+        caption: true,
+        publishedAt: true,
+        media: { orderBy: { position: "asc" }, take: 1, select: { media: { select: publicPhotoSelect } } },
+        _count: { select: { media: true } },
+      },
+    }),
+    db.post.count({ where }),
+  ]);
+  return {
+    total,
+    posts: posts.map(({ media, _count, ...p }) => ({ ...p, photo: media[0].media, photoCount: _count.media })),
+  };
+}
+
+export type PublicPostTile = Awaited<ReturnType<typeof listPublicPosts>>["posts"][number];
+
+// A post page. "live" when anyone may see it; "preview" when only the owner
+// may (unpublished storefront, or a hidden or draft post).
+export async function getStorefrontPost(sellerSlug: string, code: string) {
+  if (!POST_CODE_RE.test(code)) return null;
+  const seller = await findSeller(sellerSlug);
+  if (!seller) return null;
+  const post = await db.post.findFirst({
+    where: { sellerId: seller.id, code, status: { not: "REMOVED" } },
+    select: {
+      code: true,
+      caption: true,
+      status: true,
+      publishedAt: true,
+      createdAt: true,
+      media: { orderBy: { position: "asc" }, select: { media: { select: publicPostPhotoSelect } } },
+      // Archived items are never shown as tags.
+      products: {
+        where: { product: { status: { not: "ARCHIVED" } } },
+        orderBy: { product: { name: "asc" } },
+        // Public fields only: the item's internal id stays on the server.
+        select: { product: { select: { ...publicItemSelect, id: false, photos: photosSelect(1) } } },
+      },
+    },
+  });
+  if (!post) return null;
+  const live = isPublished(seller) && post.status === "PUBLISHED" && post.media.length > 0;
+  return {
+    seller,
+    state: live ? ("live" as const) : ("preview" as const),
+    post: {
+      code: post.code,
+      caption: post.caption,
+      status: post.status,
+      postedAt: post.publishedAt ?? post.createdAt,
+      photos: post.media.map((m) => m.media),
+      products: post.products.slice(0, MAX_POST_TAGS).map((p) => toItem(p.product)),
+    },
+  };
 }

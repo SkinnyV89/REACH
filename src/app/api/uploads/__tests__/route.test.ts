@@ -43,6 +43,15 @@ describe("POST /api/uploads", () => {
     );
   });
 
+  it("uploads post photos to the post, ignoring any capture source the browser claims", async () => {
+    const POST_ID = "44444444-4444-4444-8444-444444444444";
+    await POST(request({ file: file(), target: "post", postId: POST_ID, productId: PRODUCT, peopleConsent: "on", captureSource: "IN_APP_CAMERA", capturedAt: "2026-10-21" }));
+    const input = mocks.uploadImage.mock.calls[0][0];
+    expect(input).toMatchObject({ target: "post", postId: POST_ID, productId: null });
+    expect(input).not.toHaveProperty("captureSource");
+    expect(input).not.toHaveProperty("capturedAt");
+  });
+
   it("never sends a product id for logos and covers", async () => {
     await POST(request({ file: file(), target: "logo", productId: PRODUCT }));
     expect(mocks.uploadImage).toHaveBeenCalledWith(expect.objectContaining({ target: "logo", productId: null, peopleConsent: false }));

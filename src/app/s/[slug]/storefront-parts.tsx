@@ -232,6 +232,42 @@ export function Gallery({ photos, itemName }: { photos: PhotoData[]; itemName: s
   );
 }
 
+// Proof Posts as a square grid, newest first (like an Instagram profile).
+export function PostGrid({
+  sellerSlug,
+  posts,
+  query,
+}: {
+  sellerSlug: string;
+  posts: { code: string; caption: string; photo: PhotoData; photoCount: number }[];
+  query: string;
+}) {
+  return (
+    <ul className="grid grid-cols-3 gap-1 overflow-hidden rounded-xl sm:gap-1.5">
+      {posts.map((p, i) => (
+        <li key={p.code}>
+          <Link href={`/s/${sellerSlug}/posts/${p.code}${query}`} className="relative block aspect-square bg-ink-100 focus:outline-none focus:ring-4 focus:ring-brand-200">
+            <Photo
+              photo={p.photo}
+              alt={p.caption ? `Post: ${p.caption.slice(0, 120)}` : `Post ${i + 1}`}
+              sizes="(min-width: 672px) 224px, 33vw"
+              className="h-full w-full object-cover"
+            />
+            {p.photoCount > 1 && (
+              <span className="absolute right-1.5 top-1.5 text-white drop-shadow" aria-label={`${p.photoCount} photos`}>
+                <svg aria-hidden viewBox="0 0 24 24" className="h-5 w-5 fill-current">
+                  <path d="M7 3h12a2 2 0 0 1 2 2v12h-2V5H7z" />
+                  <rect x="3" y="7" width="14" height="14" rx="2" />
+                </svg>
+              </span>
+            )}
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return (
     <section aria-labelledby={id} className="mt-6">

@@ -233,7 +233,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
             </section>
 
             <p className="text-xs text-ink-500">
-              Views and taps are counted anonymously on your published storefront, item and campaign pages; repeat views from the same browser within 30
+              Views and taps are counted anonymously on your published storefront, item, post and campaign pages; repeat views from the same browser within 30
               minutes and your own visits aren&apos;t counted. Views are only counted when a page loads with JavaScript, so
               enquiries per view can occasionally be higher than expected. Deleted leads are no longer counted.
             </p>

@@ -11,6 +11,7 @@ import {
   type UploadErrorCode,
   type UploadTarget,
 } from "@/lib/media-rules";
+import { MAX_POST_PHOTOS } from "@/lib/post-rules";
 import { hit } from "@/lib/public-campaigns";
 import { StorageNotConfiguredError, getStorage, type Storage } from "@/lib/storage";
 
@@ -39,7 +40,7 @@ export const mediaSelect = {
 
 export type MediaView = Prisma.MediaGetPayload<{ select: typeof mediaSelect }>;
 
-function resolveStorage(storage?: Storage): Storage {
+export function resolveStorage(storage?: Storage): Storage {
   try {
     return storage ?? getStorage();
   } catch (error) {
@@ -50,7 +51,7 @@ function resolveStorage(storage?: Storage): Storage {
 
 // Deleting files is best effort: a leftover file is harmless (nothing links
 // to it), while failing the seller's action over it would not be.
-async function deleteFiles(storage: Storage, keys: string[]) {
+export async function deleteFiles(storage: Storage, keys: string[]) {
   try {
     await storage.delete(keys);
   } catch (error) {
@@ -75,6 +76,15 @@ async function lockSellerImage(tx: Prisma.TransactionClient, sellerId: string, t
   return rows[0][target];
 }
 
+// Locks the seller's post for the rest of the transaction and returns its
+// status, so concurrent uploads, publishing and deletes run one at a time.
+export async function lockPost(tx: Prisma.TransactionClient, sellerId: string, postId: string) {
+  const rows = await tx.$queryRaw<{ status: string }[]>`
+    SELECT "status"::text FROM "posts" WHERE "id" = ${postId} AND "seller_id" = ${sellerId} FOR UPDATE`;
+  if (rows.length === 0) throw new MediaError("not_found");
+  return rows[0].status as "DRAFT" | "PUBLISHED" | "HIDDEN" | "REMOVED";
+}
+
 // Rewrites an item's photo positions as 0, 1, 2... in the given order.
 async function writeOrder(tx: Prisma.TransactionClient, productId: string, mediaIds: string[]) {
   await tx.productMedia.deleteMany({ where: { productId } });
@@ -93,6 +103,7 @@ export type UploadInput = {
   sellerId: string;
   target: UploadTarget;
   productId: string | null;
+  postId?: string | null;
   data: Buffer;
   altText: string | null;
   peopleConsent: boolean;
@@ -113,6 +124,16 @@ export async function uploadImage(input: UploadInput, storageOverride?: Storage)
     });
     if (!product) throw new MediaError("not_found");
     if (product._count.photos >= MAX_PRODUCT_PHOTOS) throw new MediaError("limit_reached");
+  } else if (target === "post") {
+    if (!input.postId) throw new MediaError("not_found");
+    // Photos are added while the post is a draft; published posts keep theirs.
+    const post = await db.post.findFirst({
+      where: { id: input.postId, sellerId },
+      select: { status: true, _count: { select: { media: true } } },
+    });
+    if (!post) throw new MediaError("not_found");
+    if (post.status !== "DRAFT") throw new MediaError("post_not_draft");
+    if (post._count.media >= MAX_POST_PHOTOS) throw new MediaError("limit_reached");
   }
   if ((await hit(`upload:${sellerId}`, 60)) > UPLOADS_PER_HOUR) throw new MediaError("rate_limited");
 
@@ -142,13 +163,18 @@ export async function uploadImage(input: UploadInput, storageOverride?: Storage)
       // locks the seller row, and taking that first would deadlock.
       let oldSellerImageId: string | null = null;
       if (target === "product") await lockProduct(tx, sellerId, productId!, { allowArchived: false });
-      else oldSellerImageId = await lockSellerImage(tx, sellerId, target);
+      else if (target === "post") {
+        if ((await lockPost(tx, sellerId, input.postId!)) !== "DRAFT") throw new MediaError("post_not_draft");
+      } else oldSellerImageId = await lockSellerImage(tx, sellerId, target);
       const media = await tx.media.create({
         data: {
           id: mediaId,
           sellerId,
           kind: MEDIA_KIND_FOR_TARGET[target] as MediaKind,
-          mediaType: "IMAGE", // video uploads come with Proof Posts (Step 2)
+          mediaType: "IMAGE", // video uploads come later, with REACH's camera
+          // Every upload comes from the seller's files. Only REACH's own
+          // camera (not built yet) may record IN_APP_CAMERA.
+          captureSource: "GALLERY",
           storageKeys: keys,
           url: urls.lg,
           thumbUrl: urls.sm ?? urls.lg,
@@ -165,6 +191,10 @@ export async function uploadImage(input: UploadInput, storageOverride?: Storage)
         const order = await currentOrder(tx, productId!);
         if (order.length >= MAX_PRODUCT_PHOTOS) throw new MediaError("limit_reached");
         await tx.productMedia.create({ data: { productId: productId!, mediaId, position: order.length } });
+      } else if (target === "post") {
+        const count = await tx.postMedia.count({ where: { postId: input.postId! } });
+        if (count >= MAX_POST_PHOTOS) throw new MediaError("limit_reached");
+        await tx.postMedia.create({ data: { postId: input.postId!, mediaId, position: count } });
       } else {
         await tx.seller.update({ where: { id: sellerId }, data: target === "logo" ? { logoMediaId: mediaId } : { coverMediaId: mediaId } });
         if (oldSellerImageId) {
@@ -176,7 +206,7 @@ export async function uploadImage(input: UploadInput, storageOverride?: Storage)
       await tx.auditLog.create({
         data: {
           actorId: userId,
-          action: target === "product" ? "media.product_photo_added" : `media.${target}_set`,
+          action: target === "product" || target === "post" ? `media.${target}_photo_added` : `media.${target}_set`,
           entity: "media",
           entityId: mediaId,
         },

@@ -33,7 +33,7 @@ export default function PrivacyPage() {
             <ul>
               <li>
                 <strong>What we collect:</strong> your name, your phone number, your message (if you write one), the
-                campaign you enquired about, and the time you agreed to be contacted.
+                page you enquired from (a storefront, item, post or campaign), and the time you agreed to be contacted.
               </li>
               <li>
                 <strong>Why:</strong> so that the seller you contacted can reply to your enquiry. We do not use your
@@ -76,6 +76,12 @@ export default function PrivacyPage() {
               including GPS location, camera model and the time it was taken; the original file is not kept. Before
               uploading a photo that shows a person, you must confirm you have their permission to show it publicly.
               When you remove a photo, we delete it from our storage.
+            </p>
+            <p className="mt-2">
+              <strong>Posts:</strong> posts you publish (photos, caption and the items you tag) are public on your
+              storefront and can appear in search engines. Each photo is labelled with how it reached REACH: &ldquo;From
+              gallery&rdquo; for photos chosen from your device. Captions can&apos;t contain phone numbers, email
+              addresses or links. You can hide or delete a post at any time; deleting it also deletes its photos.
             </p>
           </section>
 

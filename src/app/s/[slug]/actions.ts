@@ -13,7 +13,7 @@ function clientIp(h: Headers): string {
   return h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip") || "unknown";
 }
 
-// The storefront, item, src and c are bound on the server page from the URL.
+// The storefront, item (or post), src and c are bound on the server page from the URL.
 // They still come from the visitor, so submitStorefrontLead re-resolves the
 // seller and item and only accepts a published storefront.
 export async function submitStorefrontLeadAction(
@@ -21,6 +21,7 @@ export async function submitStorefrontLeadAction(
   itemSlug: string | null,
   src: string | null,
   campaignCode: string | null,
+  postCode: string | null,
   _prev: LeadFormState,
   form: FormData,
 ): Promise<LeadFormState> {
@@ -42,6 +43,7 @@ export async function submitStorefrontLeadAction(
       parsed.data,
       { ...parseChannel(src), campaignCode: parseCampaignCode(campaignCode) },
       hashIp(clientIp(await headers())),
+      postCode,
     );
     if (result.ok) return { sent: true };
     if (result.reason === "rate_limited") {
