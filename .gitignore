@@ -1,4 +1,24 @@
-node_modules
+# dependencies
+node_modules/
 
+# build output
 .next/
+dist/
+build/
+out/
+*.tsbuildinfo
 
+# generated Prisma client
+src/generated/
+
+# secrets: never commit real environment files
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# misc
+*.log
+.DS_Store
+/skinbuy-reference/
