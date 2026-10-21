@@ -30,7 +30,7 @@ function canvasBlob(canvas: HTMLCanvasElement, type: string, quality?: number): 
 
 // Re-draws the photo at most `max` pixels on its longest side. Canvas output
 // carries no EXIF, and createImageBitmap applies the camera's orientation.
-async function prepare(file: File, target: UploadTarget): Promise<Blob> {
+export async function preparePhoto(file: File, target: UploadTarget): Promise<Blob> {
   let bitmap: ImageBitmap;
   try {
     bitmap = await createImageBitmap(file);
@@ -65,15 +65,39 @@ async function prepare(file: File, target: UploadTarget): Promise<Blob> {
   }
 }
 
+// Sends one prepared photo to /api/uploads. Returns an error message, or null.
+export async function sendPhoto(
+  blob: Blob,
+  opts: { target: UploadTarget; productId?: string | null; postId?: string | null; peopleConsent: boolean },
+): Promise<string | null> {
+  const form = new FormData();
+  // The server ignores file names; don't send the original one.
+  form.set("file", blob, blob.type === "image/png" ? "photo.png" : "photo.jpg");
+  form.set("target", opts.target);
+  if (opts.productId) form.set("productId", opts.productId);
+  if (opts.postId) form.set("postId", opts.postId);
+  if (opts.peopleConsent) form.set("peopleConsent", "on");
+  try {
+    const res = await fetch("/api/uploads", { method: "POST", body: form });
+    const body = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+    if (res.ok && body?.ok) return null;
+    return uploadErrorMessage(body?.error ?? (res.status === 413 ? "too_large" : "failed"));
+  } catch {
+    return uploadErrorMessage("failed");
+  }
+}
+
 export function PhotoUpload({
   target,
   productId = null,
+  postId = null,
   remaining = 1,
   label,
   disabledText,
 }: {
   target: UploadTarget;
   productId?: string | null;
+  postId?: string | null;
   remaining?: number; // how many more photos may be added
   label: string;
   disabledText?: string; // shown instead of the picker when uploads are off
@@ -86,7 +110,7 @@ export function PhotoUpload({
   const [statuses, setStatuses] = useState<Status[]>([]);
   const [note, setNote] = useState<string | null>(null);
   const askConsent = needsPeopleConsent(target);
-  const multiple = target === "product";
+  const multiple = target === "product" || target === "post";
 
   async function upload(files: File[]) {
     setNote(null);
@@ -105,17 +129,10 @@ export function PhotoUpload({
 
     for (let i = 0; i < chosen.length; i++) {
       try {
-        const blob = await prepare(chosen[i], target);
-        const form = new FormData();
-        // The server ignores file names; don't send the original one.
-        form.set("file", blob, blob.type === "image/png" ? "photo.png" : "photo.jpg");
-        form.set("target", target);
-        if (productId) form.set("productId", productId);
-        if (askConsent && consent) form.set("peopleConsent", "on");
-        const res = await fetch("/api/uploads", { method: "POST", body: form });
-        const body = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
-        if (!res.ok || !body?.ok) {
-          update(i, { state: "error", message: uploadErrorMessage(body?.error ?? (res.status === 413 ? "too_large" : "failed")) });
+        const blob = await preparePhoto(chosen[i], target);
+        const error = await sendPhoto(blob, { target, productId, postId, peopleConsent: askConsent && consent });
+        if (error) {
+          update(i, { state: "error", message: error });
           continue;
         }
         update(i, { state: "done" });

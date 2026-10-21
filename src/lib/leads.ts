@@ -27,6 +27,7 @@ export async function listLeads(sellerId: string, status?: LeadStatusValue) {
       createdAt: true,
       sellerCampaign: { select: { id: true, headline: true } },
       product: { select: { id: true, name: true } },
+      post: { select: { id: true, caption: true } },
     },
   });
 }

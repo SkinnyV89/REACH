@@ -9,7 +9,7 @@ import type { LeadFormState } from "@/app/c/[link]/actions";
 
 type TrackPayload =
   | { link: string; type: "VIEW" | "WHATSAPP_CLICK"; src: string | null }
-  | { storefront: string; item: string | null; type: "VIEW"; src: string | null; c: string | null };
+  | { storefront: string; item: string | null; post?: string | null; type: "VIEW"; src: string | null; c: string | null };
 
 function send(payload: TrackPayload) {
   const body = JSON.stringify(payload);

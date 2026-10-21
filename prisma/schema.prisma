@@ -215,6 +215,7 @@ model Seller {
   logo                 Media?                @relation("SellerLogo", fields: [logoMediaId], references: [id], onDelete: SetNull)
   cover                Media?                @relation("SellerCover", fields: [coverMediaId], references: [id], onDelete: SetNull)
   media                Media[]               @relation("SellerMedia")
+  posts                Post[]
   productSlugRedirects ProductSlugRedirect[]
   categories           SellerCategory[]
   products             Product[]
@@ -299,6 +300,7 @@ model Product {
   attributionEvents AttributionEvent[]
   slugRedirects     ProductSlugRedirect[]
   photos            ProductMedia[]
+  taggedIn          PostProduct[]
 
   @@unique([sellerId, slug])
   @@index([sellerId, status])
@@ -332,6 +334,7 @@ enum MediaKind {
   LOGO
   COVER
   PRODUCT
+  POST
 }
 
 // Only images can be uploaded today. VIDEO is reserved for short clips in
@@ -342,27 +345,39 @@ enum MediaType {
   VIDEO
 }
 
+// How a photo reached REACH. Set by the server, never taken from the browser.
+// Every upload today comes from the seller's files (GALLERY). IN_APP_CAMERA is
+// reserved for REACH's own in-page camera, which isn't built yet; only that
+// flow may set it, so "Taken in REACH" can't be claimed for a gallery photo.
+enum CaptureSource {
+  GALLERY
+  IN_APP_CAMERA
+}
+
 model Media {
-  id              String    @id @default(uuid())
-  sellerId        String    @map("seller_id")
+  id              String        @id @default(uuid())
+  sellerId        String        @map("seller_id")
   kind            MediaKind
-  mediaType       MediaType @default(IMAGE) @map("media_type")
+  mediaType       MediaType     @default(IMAGE) @map("media_type")
+  captureSource   CaptureSource @default(GALLERY) @map("capture_source")
+  capturedAt      DateTime?     @map("captured_at") // only for IN_APP_CAMERA
   // Storage keys of every stored size, so all of them can be deleted.
-  storageKeys     String[]  @map("storage_keys")
+  storageKeys     String[]      @map("storage_keys")
   url             String // large size
-  thumbUrl        String    @map("thumb_url") // small size (same as url for logos)
+  thumbUrl        String        @map("thumb_url") // small size (same as url for logos)
   width           Int // of the large size
   height          Int
   bytes           Int // all sizes together
-  altText         String?   @map("alt_text") // seller's description, read by screen readers
+  altText         String?       @map("alt_text") // seller's description, read by screen readers
   // When the seller confirmed they have permission from anyone shown.
-  peopleConsentAt DateTime? @map("people_consent_at")
-  createdAt       DateTime  @default(now()) @map("created_at")
+  peopleConsentAt DateTime?     @map("people_consent_at")
+  createdAt       DateTime      @default(now()) @map("created_at")
 
   seller       Seller        @relation("SellerMedia", fields: [sellerId], references: [id], onDelete: Cascade)
   logoOf       Seller?       @relation("SellerLogo")
   coverOf      Seller?       @relation("SellerCover")
   productPhoto ProductMedia?
+  postPhoto    PostMedia?
 
   @@index([sellerId, kind])
   @@map("media")
@@ -381,6 +396,67 @@ model ProductMedia {
   @@id([productId, mediaId])
   @@unique([productId, position])
   @@map("product_media")
+}
+
+// ---------------------------------------------------------------------------
+// PROOF POSTS: a seller's photos of their work, shown on their storefront.
+// ---------------------------------------------------------------------------
+
+enum PostStatus {
+  DRAFT // created, photos still being added; never public
+  PUBLISHED
+  HIDDEN // hidden by the seller; can be shown again
+  REMOVED // removed by REACH (moderation); the seller can't re-publish it
+}
+
+model Post {
+  id          String     @id @default(uuid())
+  sellerId    String     @map("seller_id")
+  // Short random code for the public URL /s/<seller>/posts/<code>, so
+  // internal ids never appear in public pages.
+  code        String     @unique
+  caption     String
+  status      PostStatus @default(DRAFT)
+  publishedAt DateTime?  @map("published_at")
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+
+  seller   Seller             @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  media    PostMedia[]
+  products PostProduct[]
+  leads    Lead[]
+  events   AttributionEvent[]
+
+  @@index([sellerId, status, publishedAt])
+  @@map("posts")
+}
+
+// A post's photos (and, later, video clips), in order. The database allows
+// positions 0-5 only, so a post can never hold more than six.
+model PostMedia {
+  postId   String @map("post_id")
+  mediaId  String @unique @map("media_id")
+  position Int
+
+  post  Post  @relation(fields: [postId], references: [id], onDelete: Cascade)
+  media Media @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  @@id([postId, mediaId])
+  @@unique([postId, position])
+  @@map("post_media")
+}
+
+// Items tagged in a post (the seller's own; up to five).
+model PostProduct {
+  postId    String @map("post_id")
+  productId String @map("product_id")
+
+  post    Post    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([postId, productId])
+  @@index([productId])
+  @@map("post_products")
 }
 
 // ---------------------------------------------------------------------------
@@ -494,6 +570,7 @@ enum LeadSource {
   CAMPAIGN_PAGE // enquiry form on /c/<link>
   STOREFRONT // enquiry form on /s/<seller>
   PRODUCT // enquiry form on /s/<seller>/<item>
+  POST // enquiry form on /s/<seller>/posts/<code>
 }
 
 model Lead {
@@ -501,6 +578,7 @@ model Lead {
   sellerId         String      @map("seller_id")
   sellerCampaignId String?     @map("seller_campaign_id")
   productId        String?     @map("product_id")
+  postId           String?     @map("post_id")
   name             String
   contact          String // phone number, E.164
   message          String?
@@ -517,6 +595,7 @@ model Lead {
   seller         Seller          @relation(fields: [sellerId], references: [id], onDelete: Cascade)
   sellerCampaign SellerCampaign? @relation(fields: [sellerCampaignId], references: [id], onDelete: SetNull)
   product        Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
+  post           Post?           @relation(fields: [postId], references: [id], onDelete: SetNull)
 
   @@index([sellerId, status, createdAt])
   @@index([sellerId, contact, createdAt])
@@ -528,6 +607,7 @@ enum EventTarget {
   CAMPAIGN // /c/<link>
   STOREFRONT // /s/<seller>
   PRODUCT // /s/<seller>/<item>
+  POST // /s/<seller>/posts/<code>
 }
 
 enum AttributionEventType {
@@ -545,12 +625,14 @@ model AttributionEvent {
   eventType        AttributionEventType @map("event_type")
   target           EventTarget          @default(CAMPAIGN)
   productId        String?              @map("product_id")
+  postId           String?              @map("post_id")
   channel          LeadChannel          @default(UNKNOWN)
   occurredAt       DateTime             @default(now()) @map("occurred_at")
 
   seller         Seller          @relation(fields: [sellerId], references: [id], onDelete: Cascade)
   sellerCampaign SellerCampaign? @relation(fields: [sellerCampaignId], references: [id], onDelete: SetNull)
   product        Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
+  post           Post?           @relation(fields: [postId], references: [id], onDelete: SetNull)
 
   @@index([sessionId])
   @@index([sellerId, target, eventType, occurredAt])

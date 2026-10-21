@@ -130,6 +130,17 @@ Sellers add a **logo** and a **cover photo** on `/storefront`, and **up to six p
 - **Ready for video:** every `media` row has a `media_type`, `IMAGE` for everything today. `VIDEO` is reserved for short clips in Proof Posts (Step 2), where `url` will hold the video and `thumb_url` its poster image; the database keeps logos and covers as images. Video upload itself isn't built yet.
 - `products.media` (JSON) and `sellers.logo_url` are unused, superseded by these tables, and will be dropped in a later cleanup.
 
+## Proof Posts
+
+Sellers show their real work as posts: up to 6 photos, an optional caption and up to 5 tagged items. Posts appear on the storefront as a square grid (latest 9, then **See all posts** at `/s/<slug>/posts`, 24 per page), each with its own page at `/s/<slug>/posts/<code>`.
+
+- **Seller side:** the **Posts** tab (`/posts`). *New post* is one screen: choose photos, confirm permission from anyone shown, write a caption, tag items, press **Post**. Behind it the post is saved as a draft, each photo goes through the photo pipeline (shrunk in the browser, re-encoded on the server, metadata removed), then the post is published. If any photo fails, the seller lands on the draft (`?incomplete=n`) to add it again or post with what made it; a draft is never public. After posting, the caption and tags can be edited, photos removed (never the last one) but not added, and the post hidden, shown again or deleted (deleting removes its photos and files).
+- **Statuses:** `DRAFT` → `PUBLISHED` ⇄ `HIDDEN`. `REMOVED` is for REACH moderation (set in the database for now); the seller can't show or edit a removed post but can delete it. Sellers can have at most 10 unfinished drafts.
+- **Captions:** up to 1,000 characters, with no phone numbers, email addresses or links (`captionContactProblem` in `src/lib/post-rules.ts`), because buyers contact sellers through the WhatsApp button and enquiry form, which keep numbers off public pages and keep enquiries attributed.
+- **Capture labels:** every photo records how it reached REACH in `media.capture_source`, which is set by the server and never taken from the browser. All uploads today are `GALLERY`, shown as **"From gallery"**, with the note "REACH can't tell when it was taken." `IN_APP_CAMERA` (**"Photo taken in REACH · <time>"**) is reserved for REACH's own in-page camera, which isn't built yet; the database only allows a capture time on in-app photos. There is deliberately no "Take photo" button: a phone's camera opened from a file picker can't be told apart from a gallery photo, so it couldn't honestly earn the label.
+- **Buyers:** post pages show the photos with their labels, the caption, the posted date, tagged items (archived ones hidden) linking to their item pages, *Ask about this on WhatsApp* (via `/go/wa`, greeting "I saw your post on REACH") and an enquiry form. Enquiries are tagged `POST` and linked to the post (`/leads` shows "your post"); deleting a post keeps the enquiry. Post views are counted anonymously like storefront views.
+- **Database guarantees:** at most 6 photos per post (positions 0–5), captions at most 1,000 characters, a capture time only on in-app photos, and tags only on the seller's own current items (checked in code).
+
 ## Categories
 
 Seller categories live in the `categories` table, seeded by the `seller_onboarding` migration. They are data, not code: rename, reorder (`sort_order`) or hide one (`is_active = false`) without a deploy. A category in use by sellers cannot be deleted; deactivate it instead.
@@ -157,4 +168,6 @@ Seller categories live in the `categories` table, seeded by the `seller_onboardi
 | New-lead notifications (email/SMS) | Planned: needs a provider |
 | Public storefronts `/s/<slug>` and item pages, publish/unpublish, availability, WhatsApp redirect | Implemented and tested (Step 1a) |
 | Storefront photos, logos and cover images | Implemented and tested (Step 1b) |
+| Proof Posts: photos, captions, item tags, storefront grid, post pages, enquiries tagged POST | Implemented and tested (Step 2) |
+| In-app camera ("Photo taken in REACH") and short video clips | Planned: the data model is ready (`capture_source`, `media_type`) |
 | Suburb-level places | Planned: needs `download.geonames.org` allowed in the build environment |

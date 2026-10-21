@@ -128,9 +128,10 @@ function LeadSource({
   lead,
 }: {
   lead: {
-    source: "CAMPAIGN_PAGE" | "STOREFRONT" | "PRODUCT";
+    source: "CAMPAIGN_PAGE" | "STOREFRONT" | "PRODUCT" | "POST";
     sellerCampaign: { id: string; headline: string } | null;
     product: { id: string; name: string } | null;
+    post: { id: string; caption: string } | null;
   };
 }) {
   const campaign = lead.sellerCampaign && (
@@ -142,7 +143,18 @@ function LeadSource({
     return <>Source: {campaign ?? "a campaign that has since been removed"}</>;
   }
   const where =
-    lead.source === "PRODUCT" ? (
+    lead.source === "POST" ? (
+      lead.post ? (
+        <>
+          your post{" "}
+          <Link href={`/posts/${lead.post.id}`} className="font-medium text-ink-700 hover:underline">
+            {lead.post.caption ? `“${lead.post.caption.length > 40 ? `${lead.post.caption.slice(0, 40)}…` : lead.post.caption}”` : "(no caption)"}
+          </Link>
+        </>
+      ) : (
+        "a post that has since been deleted"
+      )
+    ) : lead.source === "PRODUCT" ? (
       lead.product ? (
         <>
           item{" "}

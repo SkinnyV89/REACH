@@ -18,6 +18,7 @@ const campaignBody = z.object({
 const storefrontBody = z.object({
   storefront: z.string().max(60),
   item: z.string().max(70).nullable().optional(),
+  post: z.string().max(20).nullable().optional(),
   type: z.literal("VIEW"),
   src: z.string().max(40).nullable().optional(),
   c: z.string().max(20).nullable().optional(),
@@ -49,6 +50,7 @@ export async function POST(request: Request) {
       await recordStorefrontEvent({
         sellerSlug: body.storefront,
         itemSlug: body.item ?? null,
+        postCode: body.post ?? null,
         sessionId: visitor,
         type: "VIEW",
         channel: parseChannel(body.src).channel,

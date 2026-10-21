@@ -20,7 +20,7 @@ export class ImageError extends Error {
 // small file that expands to a huge image can't exhaust the server's memory.
 export const MAX_INPUT_PIXELS = 40_000_000;
 const ACCEPTED_FORMATS = new Set(["jpeg", "png", "webp"]);
-const MIN_DIMENSION = { logo: 64, cover: 200, product: 200 } as const;
+const MIN_DIMENSION = { logo: 64, cover: 200, product: 200, post: 200 } as const;
 
 type Size = { name: "lg" | "sm"; max: number; square?: boolean };
 // Logos: one 256px square. Covers and item photos: a large size for the item
@@ -32,6 +32,10 @@ const SIZES: Record<UploadTarget, Size[]> = {
     { name: "sm", max: 800 },
   ],
   product: [
+    { name: "lg", max: 1600 },
+    { name: "sm", max: 480 },
+  ],
+  post: [
     { name: "lg", max: 1600 },
     { name: "sm", max: 480 },
   ],

@@ -15,7 +15,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
   const { slug } = await params;
   const url = new URL(request.url);
   const item = url.searchParams.get("item");
-  const target = await getWhatsappTarget(slug, item);
+  const post = url.searchParams.get("post");
+  const target = await getWhatsappTarget(slug, item, post);
   if (!target) return new NextResponse("Not found", { status: 404, headers: noindex });
 
   // Count the tap only for a browser that loaded the storefront (it has the
@@ -28,6 +29,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
       await recordStorefrontEvent({
         sellerSlug: slug,
         itemSlug: item,
+        postCode: post,
         sessionId: visitor,
         type: "WHATSAPP_CLICK",
         channel: parseChannel(url.searchParams.get("src")).channel,
@@ -40,6 +42,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
 
   const greeting = target.itemName
     ? `Hi ${target.businessName}, I saw "${target.itemName}" on your REACH storefront and I'd like to know more.`
-    : `Hi ${target.businessName}, I found you on REACH and I'd like to know more.`;
+    : target.fromPost
+      ? `Hi ${target.businessName}, I saw your post on REACH and I'd like to know more.`
+      : `Hi ${target.businessName}, I found you on REACH and I'd like to know more.`;
   return NextResponse.redirect(whatsappLink(target.whatsappNumber, greeting), { status: 302, headers: noindex });
 }

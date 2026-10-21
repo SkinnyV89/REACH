@@ -17,8 +17,8 @@ export const UPLOADS_PER_HOUR = 60;
 // photos; the browser converts them before upload where it can read them.
 export const ACCEPT_ATTRIBUTE = "image/jpeg,image/png,image/webp,image/heic,image/heif";
 
-export type UploadTarget = "logo" | "cover" | "product";
-export const MEDIA_KIND_FOR_TARGET = { logo: "LOGO", cover: "COVER", product: "PRODUCT" } as const;
+export type UploadTarget = "logo" | "cover" | "product" | "post";
+export const MEDIA_KIND_FOR_TARGET = { logo: "LOGO", cover: "COVER", product: "PRODUCT", post: "POST" } as const;
 
 // Photos that may show people need the seller's confirmation that they have
 // permission (POPIA: a recognisable face is personal information).
@@ -50,6 +50,7 @@ export type UploadErrorCode =
   | "limit_reached"
   | "consent_required"
   | "not_found"
+  | "post_not_draft"
   | "rate_limited"
   | "storage_not_configured"
   | "failed";
@@ -64,9 +65,10 @@ export const UPLOAD_ERROR_MESSAGES: Record<UploadErrorCode, string> = {
   unsupported_format: "Use a JPEG, PNG or WebP photo.",
   too_small: "That photo is too small. Use a bigger one.",
   too_many_pixels: "That photo is too large to process. Use a smaller one.",
-  limit_reached: `An item can have up to ${MAX_PRODUCT_PHOTOS} photos. Remove one to add another.`,
+  limit_reached: `That's the most photos allowed (${MAX_PRODUCT_PHOTOS}). Remove one to add another.`,
   consent_required: "Confirm you have permission from anyone shown in the photo.",
-  not_found: "That item could not be found.",
+  not_found: "That item or post could not be found.",
+  post_not_draft: "Photos can only be added before a post is published.",
   rate_limited: "You've uploaded a lot of photos in the last hour. Please try again later.",
   storage_not_configured: "Photo uploads aren't set up on this server yet.",
   failed: "We couldn't save that photo. Please try again.",

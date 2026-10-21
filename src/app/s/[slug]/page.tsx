@@ -1,14 +1,17 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { LeadForm, ViewTracker } from "@/components/public-widgets";
 import { absoluteUrl, appUrl } from "@/lib/app-url";
-import { findCampaignForStorefront, getStorefront, toPublicSeller } from "@/lib/public-storefronts";
+import { POSTS_ON_STOREFRONT } from "@/lib/post-rules";
+import { findCampaignForStorefront, getStorefront, listPublicPosts, toPublicSeller } from "@/lib/public-storefronts";
 import { getCurrentSeller } from "@/lib/session";
 import { formatArea, parseCampaignCode } from "@/lib/storefront-rules";
 import { submitStorefrontLeadAction } from "./actions";
 import {
   Listings,
   OwnerBanner,
+  PostGrid,
   PublicFooter,
   Section,
   StorefrontHeader,
@@ -64,7 +67,10 @@ export default async function StorefrontPage({ params, searchParams }: Props) {
   if (!live && !isOwner) return <Unavailable />;
 
   const seller = toPublicSeller(storefront.seller);
-  const campaign = await findCampaignForStorefront(storefront.seller.id, code);
+  const [campaign, posts] = await Promise.all([
+    findCampaignForStorefront(storefront.seller.id, code),
+    listPublicPosts(storefront.seller.id, { take: POSTS_ON_STOREFRONT }),
+  ]);
   const query = carryQuery(src, campaign ? code : null);
   const trackable = live && !isOwner;
 
@@ -98,6 +104,19 @@ export default async function StorefrontPage({ params, searchParams }: Props) {
           </Section>
         )}
 
+        {posts.total > 0 && (
+          <Section id="posts" title="Posts">
+            <PostGrid sellerSlug={seller.slug} posts={posts.posts} query={query} />
+            {posts.total > posts.posts.length && (
+              <p className="mt-3 text-center">
+                <Link href={`/s/${seller.slug}/posts${query}`} className="text-sm font-semibold text-brand-700 hover:underline">
+                  See all {posts.total} posts
+                </Link>
+              </p>
+            )}
+          </Section>
+        )}
+
         <Section
           id="listings"
           title={seller.layout === "MENU" ? "Menu" : seller.layout === "PORTFOLIO" ? "Services" : "Products"}
@@ -108,7 +127,7 @@ export default async function StorefrontPage({ params, searchParams }: Props) {
         <Section id="enquire" title={`Ask ${seller.businessName} a question`}>
           <div className="rounded-2xl border border-ink-300/60 bg-white p-5">
             <LeadForm
-              action={submitStorefrontLeadAction.bind(null, seller.slug, null, src, campaign ? code : null)}
+              action={submitStorefrontLeadAction.bind(null, seller.slug, null, src, campaign ? code : null, null)}
               businessName={seller.businessName}
               disabled={!live}
               disabledText="Enquiries open once this storefront is published."

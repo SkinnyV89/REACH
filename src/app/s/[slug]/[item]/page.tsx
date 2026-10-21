@@ -115,7 +115,7 @@ export default async function ItemPage({ params, searchParams }: Props) {
           <p className="mt-1 text-sm text-ink-500">{seller.businessName} will get your message with this item attached.</p>
           <div className="mt-4">
             <LeadForm
-              action={submitStorefrontLeadAction.bind(null, seller.slug, item.slug, src, campaignCode)}
+              action={submitStorefrontLeadAction.bind(null, seller.slug, item.slug, src, campaignCode, null)}
               businessName={seller.businessName}
               disabled={!live}
               disabledText="Enquiries open once this storefront is published."
