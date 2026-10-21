@@ -14,7 +14,8 @@
     "db:migrate": "prisma migrate deploy",
     "db:migrate:dev": "prisma migrate dev",
     "db:studio": "prisma studio",
-    "campaign:generate": "tsx --conditions=react-server --tsconfig tsconfig.json scripts/generate-campaign.ts"
+    "campaign:generate": "tsx --conditions=react-server --tsconfig tsconfig.json scripts/generate-campaign.ts",
+    "lead:delete": "tsx --conditions=react-server --tsconfig tsconfig.json scripts/delete-leads.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.137.0",

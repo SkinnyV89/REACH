@@ -84,8 +84,9 @@ export default function PrivacyPage() {
               <a href={`mailto:${CONTACT_EMAIL}`} className="font-semibold text-brand-700 underline">
                 {CONTACT_EMAIL}
               </a>{" "}
-              with the phone number you used and, if you can, the seller&apos;s name. You may also complain to the
-              Information Regulator of South Africa.
+              with the phone number you used and, if you can, the seller&apos;s name. You can also ask the seller you
+              contacted: they can delete your enquiry from their REACH account. You may also complain to the Information
+              Regulator of South Africa.
             </p>
           </section>
         </div>
