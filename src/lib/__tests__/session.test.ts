@@ -8,11 +8,14 @@ vi.mock("next/navigation", () => ({
   redirect: (path: string) => {
     throw new Error(`REDIRECT:${path}`);
   },
+  notFound: () => {
+    throw new Error("NOT_FOUND");
+  },
 }));
 vi.mock("@/lib/auth", () => ({ auth: { api: { getSession } } }));
 vi.mock("@/lib/db", () => ({ db: { seller: { findUnique } } }));
 
-const { requireSession, requireSeller, getCurrentSeller } = await import("@/lib/session");
+const { requireAdmin, requireSession, requireSeller, getCurrentSeller } = await import("@/lib/session");
 
 const session = { user: { id: "user-a", email: "a@example.com", name: "Seller A" }, session: {} };
 const sellerA = { id: "seller-a", userId: "user-a", businessName: "Thandi's Hair", status: "ACTIVE" };
@@ -66,5 +69,23 @@ describe("getCurrentSeller", () => {
     getSession.mockResolvedValue(null);
     await expect(getCurrentSeller()).resolves.toBeNull();
     expect(findUnique).not.toHaveBeenCalled();
+  });
+});
+
+describe("requireAdmin", () => {
+  it("redirects signed-out users to sign-in", async () => {
+    getSession.mockResolvedValue(null);
+    await expect(requireAdmin()).rejects.toThrow("REDIRECT:/sign-in");
+  });
+
+  it("returns 404 for sellers, without revealing the admin area", async () => {
+    getSession.mockResolvedValue({ ...session, user: { ...session.user, role: "SELLER" } });
+    await expect(requireAdmin()).rejects.toThrow("NOT_FOUND");
+  });
+
+  it("allows admins", async () => {
+    const admin = { ...session, user: { ...session.user, role: "ADMIN" } };
+    getSession.mockResolvedValue(admin);
+    await expect(requireAdmin()).resolves.toBe(admin);
   });
 });

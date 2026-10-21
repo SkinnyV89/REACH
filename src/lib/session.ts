@@ -1,7 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { headers } from "next/headers";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { auth, type Session } from "@/lib/auth";
 import { db } from "@/lib/db";
 import type { Seller } from "@/generated/prisma/client";
@@ -41,4 +41,12 @@ export async function requireSeller(): Promise<{ session: Session; seller: Selle
   const seller = await getCurrentSeller();
   if (!seller || seller.status !== "ACTIVE") redirect(SELLER_SETUP_PATH);
   return { session, seller };
+}
+
+// For admin-only server actions and pages. Non-admins get a 404 rather than
+// a hint that the admin area exists.
+export async function requireAdmin(): Promise<Session> {
+  const session = await requireSession();
+  if (session.user.role !== "ADMIN") notFound();
+  return session;
 }

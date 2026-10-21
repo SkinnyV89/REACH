@@ -4,6 +4,7 @@ import { SignOutButton } from "@/components/sign-out-button";
 const NAV = [
   { href: "/dashboard", label: "Dashboard", key: "dashboard" },
   { href: "/products", label: "Products & services", key: "products" },
+  { href: "/campaigns", label: "Campaigns", key: "campaigns" },
 ] as const;
 
 export type SellerSection = (typeof NAV)[number]["key"];

@@ -12,7 +12,7 @@ type StepState = "done" | "next" | "later";
 
 // The seller journey. States reflect what actually exists in the product
 // today; steps that are not built yet are labelled, not linked.
-function journey(productCount: number): { title: string; detail: string; state: StepState; href?: string }[] {
+function journey(productCount: number, campaignCount: number): { title: string; detail: string; state: StepState; href?: string }[] {
   return [
   { title: "Create your account", detail: "You're signed in.", state: "done" },
   { title: "Set up your business profile", detail: "Customers will know who you are and how to reach you.", state: "done" },
@@ -29,7 +29,19 @@ function journey(productCount: number): { title: string; detail: string; state: 
         state: "next",
         href: "/products/new",
       },
-  { title: "Personalise a campaign", detail: "A professional campaign made yours.", state: "later" },
+  campaignCount > 0
+    ? {
+        title: "Personalise a campaign",
+        detail: `${campaignCount} personalised. Browse the library for more.`,
+        state: "done",
+        href: "/campaigns",
+      }
+    : {
+        title: "Personalise a campaign",
+        detail: "A professional campaign made yours.",
+        state: productCount > 0 ? "next" : "later",
+        href: productCount > 0 ? "/campaigns" : undefined,
+      },
   { title: "Share it and capture leads", detail: "Reach people beyond your contacts.", state: "later" },
   ];
 }
@@ -47,15 +59,16 @@ export default async function DashboardPage({
 }) {
   const { session, seller } = await requireSeller();
   const { welcome } = await searchParams;
-  const [categories, productCounts] = await Promise.all([
+  const [categories, productCounts, campaignCount] = await Promise.all([
     db.sellerCategory.findMany({
     where: { sellerId: seller.id },
     select: { category: { select: { name: true } } },
     orderBy: { category: { sortOrder: "asc" } },
     }),
     countProducts(seller.id),
+    db.sellerCampaign.count({ where: { sellerId: seller.id } }),
   ]);
-  const steps = journey(productCounts.active);
+  const steps = journey(productCounts.active, campaignCount);
   const firstName = session.user.name.split(" ")[0] || "there";
   const place = [seller.location, provinceLabel(seller.province)].filter(Boolean).join(", ");
   const fulfilment = FULFILMENT_OPTIONS.filter((f) => seller.fulfilment.includes(f.value)).map((f) => f.label);
