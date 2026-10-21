@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function Home() {
   return (
     <main className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6 font-sans">
@@ -18,9 +20,17 @@ export default function Home() {
             <li>Performance Measurement</li>
           </ul>
         </div>
-        <button className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full transition-colors">
-          Start Your First Campaign
-        </button>
+        <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+          <Link
+            href="/sign-up"
+            className="bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 px-8 rounded-full transition-colors"
+          >
+            Start Your First Campaign
+          </Link>
+          <Link href="/sign-in" className="font-semibold text-brand-700 hover:underline">
+            Already selling with REACH? Sign in
+          </Link>
+        </div>
       </div>
     </main>
   );

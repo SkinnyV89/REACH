@@ -1,10 +1,12 @@
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
 }
 
+// Prisma 7: the connection URL lives in prisma.config.ts (for Migrate) and is
+// passed to PrismaClient through the pg adapter at runtime (src/lib/db.ts).
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 // ---------------------------------------------------------------------------
@@ -48,6 +50,7 @@ model Session {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([userId])
   @@map("sessions")
 }
 
@@ -62,14 +65,26 @@ model Account {
   accessTokenExpiresAt  DateTime? @map("access_token_expires_at")
   refreshTokenExpiresAt DateTime? @map("refresh_token_expires_at")
   scope                 String?
-  password              String?   
+  password              String?
   createdAt             DateTime  @default(now()) @map("created_at")
   updatedAt             DateTime  @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([providerId, accountId])
+  @@index([userId])
   @@map("accounts")
+}
+
+// Used by Better Auth to persist rate-limit counters, so limits hold across
+// serverless instances instead of resetting per process.
+model RateLimit {
+  id          String @id @default(uuid())
+  key         String @unique
+  count       Int
+  lastRequest BigInt @map("last_request")
+
+  @@map("rate_limits")
 }
 
 model Verification {
@@ -80,6 +95,7 @@ model Verification {
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
 
+  @@index([identifier])
   @@map("verifications")
 }
 
@@ -98,7 +114,7 @@ model Seller {
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
-  user               User                 @relation(fields: [userId], references: [id])
+  user               User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
   products           Product[]
   sellerCampaigns    SellerCampaign[]
   leads              Lead[]
@@ -237,7 +253,7 @@ model AuditLog {
   entityId  String?  @map("entity_id")
   createdAt DateTime @default(now()) @map("created_at")
 
-  actor User? @relation(fields: [actorId], references: [id])
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
 
   @@map("audit_logs")
 }
