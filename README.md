@@ -43,7 +43,11 @@ Prisma 7 reads its connection URL from `prisma.config.ts` (which loads `.env`), 
 Every protected page, server action and route handler must start with one of the helpers in `src/lib/session.ts`:
 
 - `requireSession()`: redirects to `/sign-in` when signed out.
-- `requireSeller()`: returns the signed-in user's own seller record. Scope every seller-owned query by `seller.id`, and never use a user or seller id sent from the browser.
+- `requireSeller()`: returns the signed-in user's own seller record, and sends users who haven't finished onboarding to `/onboarding`. Scope every seller-owned query by `seller.id`, and never use a user or seller id sent from the browser.
+
+## Categories
+
+Seller categories live in the `categories` table, seeded by the `seller_onboarding` migration. They are data, not code: rename, reorder (`sort_order`) or hide one (`is_active = false`) without a deploy. A category in use by sellers cannot be deleted; deactivate it instead.
 
 ## Status
 
@@ -51,4 +55,6 @@ Every protected page, server action and route handler must start with one of the
 | --- | --- |
 | Sign-up, sign-in, sign-out, protected dashboard | Implemented and tested |
 | Email verification, password reset | Planned: needs an email provider |
-| Seller onboarding (business profile) | Planned: Phase 2.2 |
+| Seller onboarding: 3-step wizard, categories, public slug | Implemented and tested |
+| Logo upload | Planned: needs file storage (e.g. Vercel Blob or S3) |
+| Public seller page at `/seller/<slug>` | Planned: Phase 3 (address is reserved at onboarding) |

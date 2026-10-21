@@ -14,7 +14,9 @@ if (process.env.NODE_ENV === "production" && !isBuildPhase && (!secret || secret
 }
 
 export const auth = betterAuth({
-  secret,
+  // The build imports this module but never signs anything; the placeholder
+  // only silences Better Auth's missing-secret error during `next build`.
+  secret: secret ?? (isBuildPhase ? "build-phase-placeholder-never-used-at-runtime" : undefined),
   baseURL: process.env.BETTER_AUTH_URL,
   database: prismaAdapter(db, { provider: "postgresql", transaction: true }),
 

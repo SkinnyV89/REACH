@@ -34,7 +34,7 @@ export function SignUpForm() {
       setPending(false);
       return;
     }
-    router.replace("/dashboard");
+    router.replace("/onboarding");
     router.refresh();
   }
 

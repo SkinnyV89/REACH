@@ -15,7 +15,7 @@ vi.mock("@/lib/db", () => ({ db: { seller: { findUnique } } }));
 const { requireSession, requireSeller, getCurrentSeller } = await import("@/lib/session");
 
 const session = { user: { id: "user-a", email: "a@example.com", name: "Seller A" }, session: {} };
-const sellerA = { id: "seller-a", userId: "user-a", businessName: "Thandi's Hair" };
+const sellerA = { id: "seller-a", userId: "user-a", businessName: "Thandi's Hair", status: "ACTIVE" };
 
 beforeEach(() => {
   getSession.mockReset();
@@ -41,10 +41,16 @@ describe("requireSeller", () => {
     expect(findUnique).not.toHaveBeenCalled();
   });
 
-  it("redirects to seller setup when the user has no seller profile", async () => {
+  it("redirects to onboarding when the user has no seller profile", async () => {
     getSession.mockResolvedValue(session);
     findUnique.mockResolvedValue(null);
-    await expect(requireSeller()).rejects.toThrow("REDIRECT:/dashboard");
+    await expect(requireSeller()).rejects.toThrow("REDIRECT:/onboarding");
+  });
+
+  it("redirects to onboarding while the profile is unfinished", async () => {
+    getSession.mockResolvedValue(session);
+    findUnique.mockResolvedValue({ ...sellerA, status: "ONBOARDING" });
+    await expect(requireSeller()).rejects.toThrow("REDIRECT:/onboarding");
   });
 
   it("looks up the seller only by the session user's id", async () => {

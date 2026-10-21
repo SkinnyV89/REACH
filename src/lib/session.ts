@@ -7,9 +7,8 @@ import { db } from "@/lib/db";
 import type { Seller } from "@/generated/prisma/client";
 
 export const SIGN_IN_PATH = "/sign-in";
-// Until seller onboarding (Phase 2.2) exists, the dashboard is where a signed-in
-// user without a business profile is told to set one up.
-export const SELLER_SETUP_PATH = "/dashboard";
+// Where a signed-in user without a finished business profile is sent.
+export const SELLER_SETUP_PATH = "/onboarding";
 
 // Reads the session from the request cookies. Cached per request so several
 // server components can call it without repeated database lookups.
@@ -35,10 +34,11 @@ export const getCurrentSeller = cache(async (): Promise<Seller | null> => {
 });
 
 // Use wherever seller data is read or written. Scope every seller-owned query
-// with the returned seller.id.
+// with the returned seller.id. Sellers who have not finished onboarding are
+// sent back to it, so seller pages can rely on a complete profile.
 export async function requireSeller(): Promise<{ session: Session; seller: Seller }> {
   const session = await requireSession();
   const seller = await getCurrentSeller();
-  if (!seller) redirect(SELLER_SETUP_PATH);
+  if (!seller || seller.status !== "ACTIVE") redirect(SELLER_SETUP_PATH);
   return { session, seller };
 }
