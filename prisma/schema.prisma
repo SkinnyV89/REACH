@@ -190,7 +190,7 @@ model Seller {
   location       String? // town, suburb or area
   fulfilment     FulfilmentOption[] @default([])
   serviceArea    String?            @map("service_area") // delivery coverage in the seller's words
-  logoUrl        String?            @map("logo_url") // set once file storage is configured
+  logoUrl        String?            @map("logo_url") // unused: superseded by logoMediaId, dropped in a later cleanup
   websiteUrl     String?            @map("website_url")
   instagramUrl   String?            @map("instagram_url")
   facebookUrl    String?            @map("facebook_url")
@@ -204,12 +204,17 @@ model Seller {
   tagline               String?
   layout                StorefrontLayout @default(PRODUCT_GRID)
   storefrontPublishedAt DateTime?        @map("storefront_published_at")
+  logoMediaId           String?          @unique @map("logo_media_id")
+  coverMediaId          String?          @unique @map("cover_media_id")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   user                 User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
   place                Place?                @relation(fields: [placeId], references: [id], onDelete: SetNull)
+  logo                 Media?                @relation("SellerLogo", fields: [logoMediaId], references: [id], onDelete: SetNull)
+  cover                Media?                @relation("SellerCover", fields: [coverMediaId], references: [id], onDelete: SetNull)
+  media                Media[]               @relation("SellerMedia")
   productSlugRedirects ProductSlugRedirect[]
   categories           SellerCategory[]
   products             Product[]
@@ -271,7 +276,7 @@ model Product {
   kind                  ProductKind   @default(PRODUCT)
   name                  String
   description           String?
-  // Image references. Stays empty until file storage is configured.
+  // Unused: superseded by the product_media table, dropped in a later cleanup.
   media                 Json          @default("[]")
   priceType             PriceType     @default(FIXED) @map("price_type")
   price                 Decimal?      @db.Decimal(10, 2)
@@ -293,6 +298,7 @@ model Product {
   leads             Lead[]
   attributionEvents AttributionEvent[]
   slugRedirects     ProductSlugRedirect[]
+  photos            ProductMedia[]
 
   @@unique([sellerId, slug])
   @@index([sellerId, status])
@@ -314,6 +320,58 @@ model ProductSlugRedirect {
   @@id([sellerId, slug])
   @@index([productId])
   @@map("product_slug_redirects")
+}
+
+// ---------------------------------------------------------------------------
+// MEDIA (photos). Files live in object storage (Vercel Blob); these rows hold
+// their public URLs. Every image is re-encoded on the server first, which
+// strips GPS, camera and other metadata.
+// ---------------------------------------------------------------------------
+
+enum MediaKind {
+  LOGO
+  COVER
+  PRODUCT
+}
+
+model Media {
+  id              String    @id @default(uuid())
+  sellerId        String    @map("seller_id")
+  kind            MediaKind
+  // Storage keys of every stored size, so all of them can be deleted.
+  storageKeys     String[]  @map("storage_keys")
+  url             String // large size
+  thumbUrl        String    @map("thumb_url") // small size (same as url for logos)
+  width           Int // of the large size
+  height          Int
+  bytes           Int // all sizes together
+  altText         String?   @map("alt_text") // seller's description, read by screen readers
+  // When the seller confirmed they have permission from anyone shown.
+  peopleConsentAt DateTime? @map("people_consent_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  seller       Seller        @relation("SellerMedia", fields: [sellerId], references: [id], onDelete: Cascade)
+  logoOf       Seller?       @relation("SellerLogo")
+  coverOf      Seller?       @relation("SellerCover")
+  productPhoto ProductMedia?
+
+  @@index([sellerId, kind])
+  @@map("media")
+}
+
+// A product's photos, in order. Position 0 is the main photo. The database
+// allows positions 0-5 only, so an item can never hold more than six.
+model ProductMedia {
+  productId String @map("product_id")
+  mediaId   String @unique @map("media_id")
+  position  Int
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  media   Media   @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  @@id([productId, mediaId])
+  @@unique([productId, position])
+  @@map("product_media")
 }
 
 // ---------------------------------------------------------------------------

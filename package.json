@@ -22,6 +22,7 @@
     "@prisma/adapter-pg": "7.10.0",
     "@prisma/client": "7.10.0",
     "@types/pg": "^8.23.1",
+    "@vercel/blob": "2.8.2",
     "argon2": "^0.45.1",
     "better-auth": "1.7.3",
     "bullmq": "^6.3.4",
@@ -32,6 +33,7 @@
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "server-only": "^0.0.1",
+    "sharp": "0.35.5",
     "zod": "^4.5.4"
   },
   "devDependencies": {

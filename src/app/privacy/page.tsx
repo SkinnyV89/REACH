@@ -70,6 +70,13 @@ export default function PrivacyPage() {
               it through REACH&apos;s &ldquo;Chat on WhatsApp&rdquo; link. Your area is shown as a neighbourhood and
               town, never a street address.
             </p>
+            <p className="mt-2">
+              <strong>Photos:</strong> logos, cover photos and item photos you upload are public on your storefront.
+              Before a photo is saved, REACH re-creates it and removes the hidden details phones and cameras add,
+              including GPS location, camera model and the time it was taken; the original file is not kept. Before
+              uploading a photo that shows a person, you must confirm you have their permission to show it publicly.
+              When you remove a photo, we delete it from our storage.
+            </p>
           </section>
 
           <section>

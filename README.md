@@ -21,6 +21,8 @@ npm run dev                 # http://localhost:3000
 | `BETTER_AUTH_URL` | yes | Public base URL, e.g. `http://localhost:3000`. |
 | `ANTHROPIC_API_KEY` | no | Claude API key for campaign generation. Server-side only. Without it, generation creates template copy labelled "Template, not AI-written". |
 | `AI_MODEL` | no | Override the Claude model (default `claude-opus-5-5`). |
+| `BLOB_READ_WRITE_TOKEN` | for photos | Vercel Blob token (a **public** store). Server-side only. Without it, photo uploads are switched off and the upload buttons say so. |
+| `UPLOADS_DRIVER` | no | `local` stores photos on local disk in `.uploads-dev/` (development and automated tests only; `next dev` uses it automatically when there's no Blob token). Never used on Vercel. |
 | `AUTH_RATE_LIMIT` | no | Set to `on` to enforce sign-in/sign-up rate limits in development (always on in production). |
 
 Prisma 7 reads its connection URL from `prisma.config.ts` (which loads `.env`), not from `schema.prisma`.
@@ -116,6 +118,17 @@ Every seller has a public storefront at **`/s/<slug>`**, with an item page per l
 - **Campaign links** for new campaigns open the storefront with `?c=<code>`: a published campaign shows as a banner and its visits and enquiries are credited to it. Older campaigns keep their `/c/<link>` page, which still works.
 - **Tracking:** storefront and item views are counted anonymously via `/api/track`; WhatsApp taps are counted server-side by `/go/wa`, only for browsers that loaded the page (they carry the `reach_vid` cookie) and never for the owner.
 
+## Photos
+
+Sellers add a **logo** and a **cover photo** on `/storefront`, and **up to six photos per item** on the item's edit page (new items open there straight after saving). Photos appear on the storefront (cover, logo, each listing's main photo), the item page (a swipeable gallery) and in link previews (`og:image`).
+
+- **Upload path:** the browser shrinks each photo to at most 2048px and re-draws it as JPEG (PNG for logos) so it stays under 4 MB, below Vercel's 4.5 MB request limit, and posts it to `/api/uploads`, one photo per request. That route takes the seller from the session, checks they own the item, and rate-limits uploads to 60 per seller per hour.
+- **Privacy:** every image is re-encoded on the server with sharp (`src/lib/images.ts`) before anything is stored: turned upright, all metadata removed (GPS, camera, timestamps), saved as WebP in a large (1600px) and a small (480px, covers 800px) size; logos are one 256px square. The original file is never stored. The file's real format is checked from its contents (JPEG, PNG or WebP only; never SVG), and images over 40 megapixels are refused before decoding.
+- **Consent:** cover and item photos need the seller to confirm they have permission from anyone shown; the time is stored on the photo (`media.people_consent_at`). Logos don't ask.
+- **Storage** (`src/lib/storage.ts`): Vercel Blob when `BLOB_READ_WRITE_TOKEN` is set, with paths like `media/<photo id>/lg.webp` (no seller id in public URLs). Local disk is for development only. Files are stored first and the database rows after; if saving the rows fails, the files are deleted. Replaced and removed photos are deleted from storage.
+- **Limits in the database:** `product_media` allows positions 0 to 5 only, each used once per item, so an item can never hold more than six photos even with uploads arriving at once. Position 0 is the main photo; sellers reorder with *Make main* and the arrows.
+- `products.media` (JSON) and `sellers.logo_url` are unused, superseded by these tables, and will be dropped in a later cleanup.
+
 ## Categories
 
 Seller categories live in the `categories` table, seeded by the `seller_onboarding` migration. They are data, not code: rename, reorder (`sort_order`) or hide one (`is_active = false`) without a deploy. A category in use by sellers cannot be deleted; deactivate it instead.
@@ -128,7 +141,7 @@ Seller categories live in the `categories` table, seeded by the `seller_onboardi
 | Email verification, password reset | Planned: needs an email provider |
 | Seller onboarding: 3-step wizard, categories, public slug | Implemented and tested |
 | Products & services: add, edit, archive/restore, rand pricing | Implemented and tested |
-| Logo and product photo upload | Planned: needs file storage (e.g. Vercel Blob or S3) |
+| Logo, cover photo and item photo upload (Vercel Blob), GPS/metadata stripping | Implemented and tested with local-disk storage; a live Vercel Blob upload is still to be verified |
 | Product variants (sizes, colours) | Planned |
 | Campaign engine: AI master campaigns, validation, template fallback | Implemented and tested with the AI provider mocked; live Claude calls not yet verified |
 | Campaign library, personalisation, share links | Implemented and tested |
@@ -142,5 +155,5 @@ Seller categories live in the `categories` table, seeded by the `seller_onboardi
 | Dark mode | Not implemented anywhere in the app yet |
 | New-lead notifications (email/SMS) | Planned: needs a provider |
 | Public storefronts `/s/<slug>` and item pages, publish/unpublish, availability, WhatsApp redirect | Implemented and tested (Step 1a) |
-| Storefront photos, logos and cover images | Planned (Step 1b): needs `BLOB_READ_WRITE_TOKEN` for Vercel Blob |
+| Storefront photos, logos and cover images | Implemented and tested (Step 1b) |
 | Suburb-level places | Planned: needs `download.geonames.org` allowed in the build environment |

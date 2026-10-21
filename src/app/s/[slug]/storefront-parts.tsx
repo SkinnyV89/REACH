@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { Photo, type PhotoData } from "@/components/photo";
 import { formatPrice } from "@/lib/product-rules";
 import {
   AVAILABILITY,
@@ -26,6 +27,7 @@ export type PublicItem = {
   availability: AvailabilityValue;
   availabilityUpdatedAt: Date;
   leadTimeDays: number | null;
+  photos: PhotoData[]; // storefront lists carry the main photo only
 };
 
 const monthYear = new Intl.DateTimeFormat("en-ZA", { month: "short", year: "numeric", timeZone: "Africa/Johannesburg" });
@@ -64,34 +66,57 @@ export function StorefrontHeader({ seller }: { seller: PublicSeller }) {
   const area = formatArea(seller);
   const modes = serviceModeLines(seller.fulfilment, seller.layout as LayoutValue, seller.serviceRadiusKm);
   return (
-    <header className="rounded-2xl border border-ink-300/60 bg-white p-5 shadow-sm">
-      <div className="flex items-start gap-4">
-        <span
-          aria-hidden
-          className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-brand-600 text-2xl font-bold text-white"
-        >
-          {seller.businessName.trim().charAt(0).toUpperCase()}
-        </span>
-        <div className="min-w-0">
-          <h1 className="text-2xl font-bold leading-tight text-ink-900">{seller.businessName}</h1>
-          {area && <p className="mt-0.5 text-sm text-ink-700">{area}</p>}
-          {seller.tagline && <p className="mt-2 text-ink-900">{seller.tagline}</p>}
+    <header className="overflow-hidden rounded-2xl border border-ink-300/60 bg-white shadow-sm">
+      {seller.cover && (
+        <Photo
+          photo={seller.cover}
+          kind="cover"
+          alt={`${seller.businessName} cover photo`}
+          sizes="(min-width: 672px) 672px, 100vw"
+          priority
+          className="aspect-[3/1] w-full bg-ink-100 object-cover"
+        />
+      )}
+      <div className="p-5">
+        <div className="flex items-start gap-4">
+          {seller.logo ? (
+            <Photo
+              photo={seller.logo}
+              kind="logo"
+              alt={`${seller.businessName} logo`}
+              sizes="56px"
+              priority
+              className="h-14 w-14 shrink-0 rounded-full border border-ink-300/60 object-cover"
+            />
+          ) : (
+            <span
+              aria-hidden
+              className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-brand-600 text-2xl font-bold text-white"
+            >
+              {seller.businessName.trim().charAt(0).toUpperCase()}
+            </span>
+          )}
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold leading-tight text-ink-900">{seller.businessName}</h1>
+            {area && <p className="mt-0.5 text-sm text-ink-700">{area}</p>}
+            {seller.tagline && <p className="mt-2 text-ink-900">{seller.tagline}</p>}
+          </div>
         </div>
+        {/* Facts only: nothing here is a rating or an estimate. */}
+        <ul className="mt-4 flex flex-wrap gap-2 text-xs" aria-label="About this seller">
+          {modes.map((m) => (
+            <li key={m} className="rounded-full bg-brand-50 px-2.5 py-1 font-medium text-brand-700">
+              {m}
+            </li>
+          ))}
+          {seller.categories.map((c) => (
+            <li key={c} className="rounded-full bg-ink-100 px-2.5 py-1 font-medium text-ink-700">
+              {c}
+            </li>
+          ))}
+          <li className="rounded-full bg-ink-100 px-2.5 py-1 text-ink-700">On REACH since {monthYear.format(seller.memberSince)}</li>
+        </ul>
       </div>
-      {/* Facts only: nothing here is a rating or an estimate. */}
-      <ul className="mt-4 flex flex-wrap gap-2 text-xs" aria-label="About this seller">
-        {modes.map((m) => (
-          <li key={m} className="rounded-full bg-brand-50 px-2.5 py-1 font-medium text-brand-700">
-            {m}
-          </li>
-        ))}
-        {seller.categories.map((c) => (
-          <li key={c} className="rounded-full bg-ink-100 px-2.5 py-1 font-medium text-ink-700">
-            {c}
-          </li>
-        ))}
-        <li className="rounded-full bg-ink-100 px-2.5 py-1 text-ink-700">On REACH since {monthYear.format(seller.memberSince)}</li>
-      </ul>
     </header>
   );
 }
@@ -117,11 +142,18 @@ export function Listings({
       <ul className="grid grid-cols-2 gap-3">
         {items.map((i) => (
           <li key={i.slug} className={dim(i)}>
-            <Link href={href(i)} className="flex h-full flex-col rounded-xl border border-ink-300/60 bg-white p-3 hover:border-brand-500">
-              <span className="font-semibold leading-snug text-ink-900">{i.name}</span>
-              <span className="mt-1 font-bold text-ink-900">{price(i)}</span>
-              <span className="mt-auto pt-2">
-                <AvailabilityBadge item={i} />
+            <Link href={href(i)} className="flex h-full flex-col overflow-hidden rounded-xl border border-ink-300/60 bg-white hover:border-brand-500">
+              {i.photos[0] ? (
+                <Photo photo={i.photos[0]} alt={i.name} sizes="(min-width: 672px) 320px, 50vw" className="aspect-square w-full bg-ink-100 object-cover" />
+              ) : (
+                <NoPhoto className="aspect-square w-full" />
+              )}
+              <span className="flex flex-1 flex-col p-3">
+                <span className="font-semibold leading-snug text-ink-900">{i.name}</span>
+                <span className="mt-1 font-bold text-ink-900">{price(i)}</span>
+                <span className="mt-auto pt-2">
+                  <AvailabilityBadge item={i} />
+                </span>
               </span>
             </Link>
           </li>
@@ -136,22 +168,67 @@ export function Listings({
     <ul className="divide-y divide-ink-100 overflow-hidden rounded-xl border border-ink-300/60 bg-white">
       {items.map((i) => (
         <li key={i.slug} className={dim(i)}>
-          <Link href={href(i)} className="block px-4 py-3 hover:bg-ink-100/60">
-            <span className="flex items-baseline justify-between gap-3">
-              <span className="min-w-0 font-semibold text-ink-900">{i.name}</span>
-              <span className="shrink-0 font-bold text-ink-900">{price(i)}</span>
-            </span>
-            {i.description && seller.layout === "MENU" && (
-              <span className="mt-0.5 line-clamp-2 block text-sm text-ink-700">{i.description}</span>
+          <Link href={href(i)} className="flex gap-3 px-4 py-3 hover:bg-ink-100/60">
+            {i.photos[0] && (
+              <Photo photo={i.photos[0]} alt={i.name} sizes="64px" className="h-16 w-16 shrink-0 rounded-lg bg-ink-100 object-cover" />
             )}
-            <span className="mt-1.5 flex flex-wrap items-center gap-2">
-              <AvailabilityBadge item={i} />
-              <AvailabilityNote item={i} />
+            <span className="block min-w-0 flex-1">
+              <span className="flex items-baseline justify-between gap-3">
+                <span className="min-w-0 font-semibold text-ink-900">{i.name}</span>
+                <span className="shrink-0 font-bold text-ink-900">{price(i)}</span>
+              </span>
+              {i.description && seller.layout === "MENU" && (
+                <span className="mt-0.5 line-clamp-2 block text-sm text-ink-700">{i.description}</span>
+              )}
+              <span className="mt-1.5 flex flex-wrap items-center gap-2">
+                <AvailabilityBadge item={i} />
+                <AvailabilityNote item={i} />
+              </span>
             </span>
           </Link>
         </li>
       ))}
     </ul>
+  );
+}
+
+// Placeholder where an item has no photo yet, so grid cards line up.
+function NoPhoto({ className }: { className: string }) {
+  return (
+    <span aria-hidden className={`flex items-center justify-center bg-ink-100 text-ink-300 ${className}`}>
+      <svg viewBox="0 0 24 24" className="h-8 w-8 fill-none stroke-current" strokeWidth={1.5}>
+        <rect x="3" y="5" width="18" height="14" rx="2" />
+        <circle cx="9" cy="10" r="1.5" />
+        <path d="m21 16-5-5-8 8" />
+      </svg>
+    </span>
+  );
+}
+
+// Item page photos: swipe sideways on phones (CSS scroll snap, no script).
+export function Gallery({ photos, itemName }: { photos: PhotoData[]; itemName: string }) {
+  if (photos.length === 0) return null;
+  return (
+    <div className="-mx-5 -mt-5 mb-4">
+      <ul aria-label={`Photos of ${itemName}`} className="flex snap-x snap-mandatory overflow-x-auto bg-ink-100 [scrollbar-width:thin]">
+        {photos.map((p, i) => (
+          <li key={p.url} className="w-full shrink-0 snap-center">
+            <Photo
+              photo={p}
+              alt={photos.length > 1 ? `${itemName}, photo ${i + 1} of ${photos.length}` : itemName}
+              sizes="(min-width: 672px) 672px, 100vw"
+              priority={i === 0}
+              className="aspect-square w-full object-contain sm:aspect-[4/3]"
+            />
+          </li>
+        ))}
+      </ul>
+      {photos.length > 1 && (
+        <p className="px-5 pt-2 text-xs text-ink-500">
+          {photos.length} photos · swipe or scroll sideways for more
+        </p>
+      )}
+    </div>
   );
 }
 

@@ -10,6 +10,14 @@ import { ITEM_SLUG_RE, shareCodeOf } from "@/lib/storefront-rules";
 
 const SELLER_SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
+// Public fields of a stored photo (no ids or storage keys).
+const publicPhotoSelect = { url: true, thumbUrl: true, width: true, height: true, altText: true } as const;
+const photosSelect = (take?: number) => ({
+  orderBy: { position: "asc" as const },
+  ...(take ? { take } : {}),
+  select: { media: { select: publicPhotoSelect } },
+});
+
 const publicSellerSelect = {
   id: true, // server-side only: owner check, lead linking
   slug: true,
@@ -31,6 +39,8 @@ const publicSellerSelect = {
   websiteUrl: true,
   createdAt: true,
   place: { select: { name: true, province: true } },
+  logo: { select: publicPhotoSelect },
+  cover: { select: publicPhotoSelect },
   categories: { select: { category: { select: { name: true, slug: true } } } },
 } as const;
 
@@ -59,8 +69,10 @@ export function isPublished(seller: Pick<SellerRow, "status" | "storefrontPublis
   return seller.status === "ACTIVE" && seller.storefrontPublishedAt !== null;
 }
 
-function toItem<T extends { price: { toFixed(n: number): string } | null }>(item: T) {
-  return { ...item, price: item.price?.toFixed(2) ?? null };
+type PhotoRows = { photos: { media: { url: string; thumbUrl: string; width: number; height: number; altText: string | null } }[] };
+
+function toItem<T extends { price: { toFixed(n: number): string } | null } & PhotoRows>({ photos, ...item }: T) {
+  return { ...item, price: item.price?.toFixed(2) ?? null, photos: photos.map((p) => p.media) };
 }
 
 // "live": anyone may see it. "unpublished": exists, but only the owner may
@@ -71,7 +83,7 @@ export async function getStorefront(slug: string) {
   const items = await db.product.findMany({
     where: { sellerId: seller.id, status: { not: "ARCHIVED" } },
     orderBy: { updatedAt: "desc" },
-    select: publicItemSelect,
+    select: { ...publicItemSelect, photos: photosSelect(1) }, // main photo only
   });
   // Out-of-stock items last; otherwise most recently updated first. (Sorting
   // by the enum would follow its declaration order, not what buyers need.)
@@ -90,7 +102,7 @@ export async function getStorefrontItem(sellerSlug: string, itemSlug: string) {
 
   const item = await db.product.findFirst({
     where: { sellerId: seller.id, slug: itemSlug, status: { not: "ARCHIVED" } },
-    select: publicItemSelect,
+    select: { ...publicItemSelect, photos: photosSelect() },
   });
   if (item) return { kind: "item" as const, seller, item: toItem(item), state };
 
@@ -119,6 +131,8 @@ export function toPublicSeller(seller: SellerRow) {
     fulfilment: seller.fulfilment,
     serviceRadiusKm: seller.serviceRadiusKm,
     hasWhatsapp: Boolean(seller.whatsappNumber),
+    logo: seller.logo,
+    cover: seller.cover,
     categories: seller.categories.map((c) => c.category.name),
     links: [
       ["Instagram", seller.instagramUrl],

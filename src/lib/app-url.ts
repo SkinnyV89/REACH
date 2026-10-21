@@ -25,3 +25,9 @@ export function campaignShareUrl(
 export function withSrc(url: string, src: string): string {
   return `${url}${url.includes("?") ? "&" : "?"}src=${encodeURIComponent(src)}`;
 }
+
+// Absolute form of a stored file's URL (Blob URLs already are; local
+// development files are served from this app).
+export function absoluteUrl(url: string): string {
+  return /^https?:\/\//.test(url) ? url : `${appUrl()}${url}`;
+}

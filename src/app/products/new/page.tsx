@@ -17,7 +17,7 @@ export default async function NewProductPage() {
       <main className="mx-auto max-w-2xl px-4 py-8">
         <section className="rounded-2xl border border-ink-300/60 bg-white p-5 shadow-sm sm:p-8">
           <h1 className="text-2xl font-bold text-ink-900">Add a product or service</h1>
-          <p className="mt-1 text-sm text-ink-500">You can change any of this later.</p>
+          <p className="mt-1 text-sm text-ink-500">You can change any of this later, and add up to 6 photos after saving.</p>
           <div className="mt-6">
             <ProductForm
               action={createProductAction}

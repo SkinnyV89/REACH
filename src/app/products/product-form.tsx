@@ -198,11 +198,6 @@ export function ProductForm({
         )}
       </div>
 
-      <div className="rounded-lg border border-dashed border-ink-300 bg-ink-100/60 p-3 text-sm text-ink-700">
-        <span className="font-medium text-ink-900">Photos</span> can&apos;t be added yet. Image upload will be
-        added once secure file storage is set up.
-      </div>
-
       <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between">
         <Link
           href="/products"

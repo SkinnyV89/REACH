@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import { LeadForm, ViewTracker } from "@/components/public-widgets";
-import { appUrl } from "@/lib/app-url";
+import { absoluteUrl, appUrl } from "@/lib/app-url";
 import { formatPrice } from "@/lib/product-rules";
 import { findCampaignForStorefront, getStorefrontItem, toPublicSeller } from "@/lib/public-storefronts";
 import { getCurrentSeller } from "@/lib/session";
@@ -11,6 +11,7 @@ import { submitStorefrontLeadAction } from "../actions";
 import {
   AvailabilityBadge,
   AvailabilityNote,
+  Gallery,
   OwnerBanner,
   PublicFooter,
   Unavailable,
@@ -33,11 +34,18 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
   const price = formatPrice(found.item.priceType, found.item.price);
   const description = found.item.description?.slice(0, 160) ?? `${found.item.name} from ${found.seller.businessName}, ${price}.`;
+  // Link previews (WhatsApp, Facebook) show the main photo, or the cover.
+  const image = found.item.photos[0] ?? found.seller.cover;
   return {
     title: `${found.item.name} · ${found.seller.businessName} | REACH`,
     description,
     alternates: { canonical: `${appUrl()}/s/${found.seller.slug}/${found.item.slug}` },
-    openGraph: { title: `${found.item.name} · ${price}`, description, type: "website" },
+    openGraph: {
+      title: `${found.item.name} · ${price}`,
+      description,
+      type: "website",
+      ...(image ? { images: [{ url: absoluteUrl(image.url), width: image.width, height: image.height }] } : {}),
+    },
   };
 }
 
@@ -74,7 +82,8 @@ export default async function ItemPage({ params, searchParams }: Props) {
           ← {seller.businessName}
         </Link>
 
-        <article className="mt-3 rounded-2xl border border-ink-300/60 bg-white p-5 shadow-sm">
+        <article className="mt-3 overflow-hidden rounded-2xl border border-ink-300/60 bg-white p-5 shadow-sm">
+          <Gallery photos={item.photos} itemName={item.name} />
           <p className="text-xs font-medium uppercase tracking-wide text-ink-500">
             {item.kind === "SERVICE" ? "Service" : "Product"} · {item.category.name}
           </p>

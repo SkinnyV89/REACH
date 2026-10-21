@@ -247,8 +247,8 @@ export function ExtrasStep({
         error={errors.websiteUrl}
       />
       <div className="rounded-lg border border-dashed border-ink-300 bg-ink-100/60 p-3 text-sm text-ink-700">
-        <span className="font-medium text-ink-900">Logo upload</span> isn&apos;t available yet. It will be
-        added once secure file storage is set up.
+        <span className="font-medium text-ink-900">Logo and cover photo:</span> add them on your Shop
+        (storefront) page once setup is finished.
       </div>
       <StepActions pending={pending} backStep={2} label={isActive ? "Save changes" : "Finish setup"} />
     </form>
