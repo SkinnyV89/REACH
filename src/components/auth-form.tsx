@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { InputHTMLAttributes, ReactNode } from "react";
+import { OptionalTag } from "@/components/form-controls";
 
 export function AuthShell({
   title,
@@ -32,18 +33,21 @@ export function Field({
   error,
   hint,
   id,
+  optional,
   ...input
 }: InputHTMLAttributes<HTMLInputElement> & {
   id: string;
   label: string;
   error?: string;
   hint?: string;
+  optional?: boolean;
 }) {
   const describedBy = error ? `${id}-error` : hint ? `${id}-hint` : undefined;
   return (
     <div>
       <label htmlFor={id} className="block text-sm font-medium text-ink-900">
         {label}
+        {optional && <OptionalTag />}
       </label>
       <input
         id={id}

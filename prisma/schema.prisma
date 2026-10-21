@@ -19,18 +19,18 @@ enum UserRole {
 }
 
 model User {
-  id            String    @id @default(uuid())
-  email         String    @unique
-  role          UserRole  @default(SELLER)
-  name          String    @default("")
+  id            String   @id @default(uuid())
+  email         String   @unique
+  role          UserRole @default(SELLER)
+  name          String   @default("")
   image         String?
-  emailVerified Boolean   @default(false) @map("email_verified")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
+  emailVerified Boolean  @default(false) @map("email_verified")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
-  seller      Seller?
-  auditLogs   AuditLog[]
-  aiJobs      AIJob[]
+  seller    Seller?
+  auditLogs AuditLog[]
+  aiJobs    AIJob[]
 
   sessions Session[]
   accounts Account[]
@@ -100,27 +100,95 @@ model Verification {
 }
 
 // ---------------------------------------------------------------------------
+// CATEGORIES (configurable; seeded by migration, managed as data not code)
+// ---------------------------------------------------------------------------
+
+model Category {
+  id          String   @id @default(uuid())
+  slug        String   @unique
+  name        String
+  description String?
+  sortOrder   Int      @default(0) @map("sort_order")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  sellers SellerCategory[]
+
+  @@map("categories")
+}
+
+// ---------------------------------------------------------------------------
 // SELLER PROFILE (Replaces SkinBuy Distributor/Brand)
 // ---------------------------------------------------------------------------
 
-model Seller {
-  id            String   @id @default(uuid())
-  userId        String   @unique @map("user_id")
-  slug          String   @unique
-  businessName  String   @map("business_name")
-  description   String?
-  whatsappNumber String? @map("whatsapp_number")
-  location      String?
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+enum SellerStatus {
+  ONBOARDING // profile started, wizard not finished
+  ACTIVE // onboarding complete
+}
 
-  user               User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
-  products           Product[]
-  sellerCampaigns    SellerCampaign[]
-  leads              Lead[]
-  attributionEvents  AttributionEvent[]
+enum FulfilmentOption {
+  DELIVERY
+  COLLECTION
+  ONLINE // service or product delivered digitally / remotely
+}
+
+enum Province {
+  EASTERN_CAPE
+  FREE_STATE
+  GAUTENG
+  KWAZULU_NATAL
+  LIMPOPO
+  MPUMALANGA
+  NORTH_WEST
+  NORTHERN_CAPE
+  WESTERN_CAPE
+}
+
+model Seller {
+  id             String             @id @default(uuid())
+  userId         String             @unique @map("user_id")
+  // Public address of the seller's page. Generated once at creation and kept
+  // stable so shared links never break when the business name is edited.
+  slug           String             @unique
+  status         SellerStatus       @default(ONBOARDING)
+  businessName   String             @map("business_name")
+  description    String?
+  whatsappNumber String?            @map("whatsapp_number") // E.164, e.g. +27821234567
+  province       Province?
+  location       String? // town, suburb or area
+  fulfilment     FulfilmentOption[] @default([])
+  serviceArea    String?            @map("service_area") // delivery coverage in the seller's words
+  logoUrl        String?            @map("logo_url") // set once file storage is configured
+  websiteUrl     String?            @map("website_url")
+  instagramUrl   String?            @map("instagram_url")
+  facebookUrl    String?            @map("facebook_url")
+  tiktokUrl      String?            @map("tiktok_url")
+  onboardedAt    DateTime?          @map("onboarded_at")
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categories        SellerCategory[]
+  products          Product[]
+  sellerCampaigns   SellerCampaign[]
+  leads             Lead[]
+  attributionEvents AttributionEvent[]
 
   @@map("sellers")
+}
+
+model SellerCategory {
+  sellerId   String   @map("seller_id")
+  categoryId String   @map("category_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  seller   Seller   @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@id([sellerId, categoryId])
+  @@index([categoryId])
+  @@map("seller_categories")
 }
 
 // ---------------------------------------------------------------------------
@@ -150,14 +218,14 @@ model Product {
 
 // The reusable template created by REACH AI
 model MasterCampaign {
-  id          String   @id @default(uuid())
-  category    String
-  title       String
-  objective   String
-  baseCopy    String   @map("base_copy")
-  assets      Json     @default("[]") // AI generated images/video concepts
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id        String   @id @default(uuid())
+  category  String
+  title     String
+  objective String
+  baseCopy  String   @map("base_copy")
+  assets    Json     @default("[]") // AI generated images/video concepts
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   sellerCampaigns SellerCampaign[]
 
@@ -176,9 +244,9 @@ model SellerCampaign {
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
 
-  masterCampaign MasterCampaign @relation(fields: [masterCampaignId], references: [id])
-  seller         Seller         @relation(fields: [sellerId], references: [id])
-  leads          Lead[]
+  masterCampaign    MasterCampaign     @relation(fields: [masterCampaignId], references: [id])
+  seller            Seller             @relation(fields: [sellerId], references: [id])
+  leads             Lead[]
   attributionEvents AttributionEvent[]
 
   @@map("seller_campaigns")
@@ -201,7 +269,7 @@ model Lead {
   sellerId         String     @map("seller_id")
   sellerCampaignId String?    @map("seller_campaign_id")
   name             String?
-  contact          String     // Phone or email
+  contact          String // Phone or email
   message          String?
   status           LeadStatus @default(NEW)
   createdAt        DateTime   @default(now()) @map("created_at")
@@ -233,12 +301,12 @@ model AttributionEvent {
 // ---------------------------------------------------------------------------
 
 model AIJob {
-  id           String   @id @default(uuid())
-  taskType     String   @map("task_type") // CAMPAIGN_GENERATION | IMAGE_GENERATION
-  status       String   @default("pending") // pending | completed | failed
-  requestedBy  String   @map("requested_by")
-  tokensUsed   Int?     @map("tokens_used")
-  createdAt    DateTime @default(now()) @map("created_at")
+  id          String   @id @default(uuid())
+  taskType    String   @map("task_type") // CAMPAIGN_GENERATION | IMAGE_GENERATION
+  status      String   @default("pending") // pending | completed | failed
+  requestedBy String   @map("requested_by")
+  tokensUsed  Int?     @map("tokens_used")
+  createdAt   DateTime @default(now()) @map("created_at")
 
   requester User @relation(fields: [requestedBy], references: [id])
 
