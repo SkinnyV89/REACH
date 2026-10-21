@@ -125,7 +125,7 @@ export function personaliseCopy(
 // Share links
 // ---------------------------------------------------------------------------
 
-const CODE_ALPHABET = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O, 1/l/I
+export const CODE_ALPHABET = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O, 1/l/I
 export const SHARE_CODE_LENGTH = 8;
 
 // 8 characters from 56 symbols ≈ 46 bits: unguessable for practical purposes,

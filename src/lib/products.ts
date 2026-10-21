@@ -2,6 +2,7 @@ import "server-only";
 import { db } from "@/lib/db";
 import type { Prisma, ProductStatus } from "@/generated/prisma/client";
 import { MAX_PRODUCTS_PER_SELLER, type ProductInput } from "@/lib/product-rules";
+import { itemSlug, itemSlugCandidates, statusFromAvailability } from "@/lib/storefront-rules";
 
 // Product and service operations. Every function takes the seller id from
 // requireSeller() and scopes every query by it, so a seller can only ever
@@ -21,6 +22,9 @@ const listSelect = {
   id: true,
   kind: true,
   name: true,
+  slug: true,
+  availability: true,
+  availabilityUpdatedAt: true,
   priceType: true,
   price: true,
   status: true,
@@ -85,8 +89,26 @@ function toData(input: ProductInput) {
     description: input.description,
     priceType: input.priceType,
     price: input.price,
-    status: input.status,
+    availability: input.availability,
+    leadTimeDays: input.leadTimeDays,
+    // Mirrored for older code that reads status; archiving is separate.
+    status: statusFromAvailability(input.availability),
   };
+}
+
+// A slug for this seller that is not used by another item, now or as an old
+// (redirecting) address. `productId` lets an item keep or reclaim its own.
+async function availableItemSlug(tx: Prisma.TransactionClient, sellerId: string, name: string, productId?: string) {
+  const candidates = itemSlugCandidates(itemSlug(name));
+  const [live, redirects] = await Promise.all([
+    tx.product.findMany({ where: { sellerId, slug: { in: candidates } }, select: { id: true, slug: true } }),
+    tx.productSlugRedirect.findMany({ where: { sellerId, slug: { in: candidates } }, select: { productId: true, slug: true } }),
+  ]);
+  const takenByOthers = new Set([
+    ...live.filter((p) => p.id !== productId).map((p) => p.slug),
+    ...redirects.filter((r) => r.productId !== productId).map((r) => r.slug),
+  ]);
+  return candidates.find((c) => !takenByOthers.has(c)) ?? `${candidates[0].slice(0, 50)}-${crypto.randomUUID().slice(0, 6)}`;
 }
 
 export async function createProduct(userId: string, sellerId: string, input: ProductInput) {
@@ -100,7 +122,8 @@ export async function createProduct(userId: string, sellerId: string, input: Pro
         `You can have up to ${MAX_PRODUCTS_PER_SELLER} products and services. Edit an existing one instead.`,
       );
     }
-    const product = await tx.product.create({ data: { sellerId, ...toData(input) } });
+    const slug = await availableItemSlug(tx, sellerId, input.name);
+    const product = await tx.product.create({ data: { sellerId, slug, ...toData(input) } });
     await tx.auditLog.create({
       data: { actorId: userId, action: "product.created", entity: "product", entityId: product.id },
     });
@@ -111,12 +134,37 @@ export async function createProduct(userId: string, sellerId: string, input: Pro
 export async function updateProduct(userId: string, sellerId: string, productId: string, input: ProductInput) {
   await assertSellerCategory(sellerId, input.categoryId);
   return db.$transaction(async (tx) => {
-    // updateMany with the seller in the filter: a foreign id matches nothing.
-    const { count } = await tx.product.updateMany({
+    // Seller in the filter: a foreign id matches nothing.
+    const current = await tx.product.findFirst({
       where: { id: productId, sellerId },
-      data: toData(input),
+      select: { name: true, slug: true, availability: true },
     });
-    if (count === 0) throw new ProductError("NOT_FOUND", "That product or service could not be found.");
+    if (!current) throw new ProductError("NOT_FOUND", "That product or service could not be found.");
+
+    // Renamed: move to a new slug and keep the old one redirecting, so links
+    // already shared keep working.
+    let slug = current.slug;
+    if (input.name !== current.name) {
+      const next = await availableItemSlug(tx, sellerId, input.name, productId);
+      if (next !== current.slug) {
+        await tx.productSlugRedirect.upsert({
+          where: { sellerId_slug: { sellerId, slug: current.slug } },
+          create: { sellerId, slug: current.slug, productId },
+          update: { productId },
+        });
+        // Renaming back to an old name reclaims that address from the redirects.
+        await tx.productSlugRedirect.deleteMany({ where: { sellerId, slug: next, productId } });
+        slug = next;
+      }
+    }
+    await tx.product.update({
+      where: { id: productId },
+      data: {
+        ...toData(input),
+        slug,
+        ...(input.availability !== current.availability ? { availabilityUpdatedAt: new Date() } : {}),
+      },
+    });
     await tx.auditLog.create({
       data: { actorId: userId, action: "product.updated", entity: "product", entityId: productId },
     });

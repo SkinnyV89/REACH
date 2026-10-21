@@ -121,6 +121,29 @@ model Category {
 }
 
 // ---------------------------------------------------------------------------
+// PLACES (GeoNames, CC BY 4.0 — https://www.geonames.org). Towns and cities
+// with approximate centre points. Never a seller's address.
+// ---------------------------------------------------------------------------
+
+model Place {
+  id         String   @id @default(uuid())
+  geonameId  Int      @unique @map("geoname_id")
+  slug       String   @unique
+  name       String
+  province   Province
+  latitude   Float
+  longitude  Float
+  population Int      @default(0)
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  sellers Seller[]
+
+  @@index([province, name])
+  @@map("places")
+}
+
+// ---------------------------------------------------------------------------
 // SELLER PROFILE (Replaces SkinBuy Distributor/Brand)
 // ---------------------------------------------------------------------------
 
@@ -147,6 +170,12 @@ enum Province {
   WESTERN_CAPE
 }
 
+enum StorefrontLayout {
+  PORTFOLIO // services: hair, beauty, barbers
+  PRODUCT_GRID // goods
+  MENU // food and baking
+}
+
 model Seller {
   id             String             @id @default(uuid())
   userId         String             @unique @map("user_id")
@@ -167,16 +196,28 @@ model Seller {
   facebookUrl    String?            @map("facebook_url")
   tiktokUrl      String?            @map("tiktok_url")
   onboardedAt    DateTime?          @map("onboarded_at")
-  createdAt      DateTime           @default(now()) @map("created_at")
-  updatedAt      DateTime           @updatedAt @map("updated_at")
 
-  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  categories        SellerCategory[]
-  products          Product[]
-  sellerCampaigns   SellerCampaign[]
-  leads             Lead[]
-  attributionEvents AttributionEvent[]
+  // Storefront (/s/<slug>). Unpublished until the seller opts in.
+  placeId               String?          @map("place_id")
+  areaDetail            String?          @map("area_detail") // neighbourhood in the seller's words, e.g. "Pimville"
+  serviceRadiusKm       Int?             @map("service_radius_km") // how far they deliver / travel
+  tagline               String?
+  layout                StorefrontLayout @default(PRODUCT_GRID)
+  storefrontPublishedAt DateTime?        @map("storefront_published_at")
 
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user                 User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  place                Place?                @relation(fields: [placeId], references: [id], onDelete: SetNull)
+  productSlugRedirects ProductSlugRedirect[]
+  categories           SellerCategory[]
+  products             Product[]
+  sellerCampaigns      SellerCampaign[]
+  leads                Lead[]
+  attributionEvents    AttributionEvent[]
+
+  @@index([storefrontPublishedAt])
   @@map("sellers")
 }
 
@@ -208,6 +249,15 @@ enum PriceType {
   ON_REQUEST // "Price on request"; price is null
 }
 
+// What the buyer can expect. Seller-set, shown with when it was last updated.
+enum Availability {
+  IN_STOCK
+  PRE_ORDER
+  MADE_TO_ORDER
+  OUT_OF_STOCK
+  BY_BOOKING // services
+}
+
 enum ProductStatus {
   AVAILABLE
   UNAVAILABLE // temporarily out of stock / not taking bookings
@@ -215,28 +265,55 @@ enum ProductStatus {
 }
 
 model Product {
-  id          String        @id @default(uuid())
-  sellerId    String        @map("seller_id")
-  categoryId  String        @map("category_id")
-  kind        ProductKind   @default(PRODUCT)
-  name        String
-  description String?
+  id                    String        @id @default(uuid())
+  sellerId              String        @map("seller_id")
+  categoryId            String        @map("category_id")
+  kind                  ProductKind   @default(PRODUCT)
+  name                  String
+  description           String?
   // Image references. Stays empty until file storage is configured.
-  media       Json          @default("[]")
-  priceType   PriceType     @default(FIXED) @map("price_type")
-  price       Decimal?      @db.Decimal(10, 2)
-  currency    String        @default("ZAR")
-  status      ProductStatus @default(AVAILABLE)
-  createdAt   DateTime      @default(now()) @map("created_at")
-  updatedAt   DateTime      @updatedAt @map("updated_at")
+  media                 Json          @default("[]")
+  priceType             PriceType     @default(FIXED) @map("price_type")
+  price                 Decimal?      @db.Decimal(10, 2)
+  currency              String        @default("ZAR")
+  // Lifecycle: AVAILABLE/UNAVAILABLE mirror availability for older code;
+  // ARCHIVED hides the item everywhere.
+  status                ProductStatus @default(AVAILABLE)
+  // Readable public address within the storefront: /s/<seller>/<slug>.
+  slug                  String
+  availability          Availability  @default(IN_STOCK)
+  availabilityUpdatedAt DateTime      @default(now()) @map("availability_updated_at")
+  leadTimeDays          Int?          @map("lead_time_days") // pre-order / made to order
+  createdAt             DateTime      @default(now()) @map("created_at")
+  updatedAt             DateTime      @updatedAt @map("updated_at")
 
-  seller          Seller           @relation(fields: [sellerId], references: [id], onDelete: Cascade)
-  category        Category         @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  sellerCampaigns SellerCampaign[]
+  seller            Seller                @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  category          Category              @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  sellerCampaigns   SellerCampaign[]
+  leads             Lead[]
+  attributionEvents AttributionEvent[]
+  slugRedirects     ProductSlugRedirect[]
 
+  @@unique([sellerId, slug])
   @@index([sellerId, status])
   @@index([categoryId])
   @@map("products")
+}
+
+// Old product slugs keep working after a rename: /s/<seller>/<old-slug>
+// permanently redirects to the product's current slug.
+model ProductSlugRedirect {
+  sellerId  String   @map("seller_id")
+  slug      String
+  productId String   @map("product_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  seller  Seller  @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([sellerId, slug])
+  @@index([productId])
+  @@map("product_slug_redirects")
 }
 
 // ---------------------------------------------------------------------------
@@ -282,6 +359,13 @@ model MasterCampaign {
 }
 
 // The personalised version created by the Seller
+// Where a campaign's share link sends people. New campaigns go to the
+// storefront with ?c=<code>; older ones keep their /c/<link> page.
+enum CampaignDestination {
+  CAMPAIGN_PAGE
+  STOREFRONT
+}
+
 enum SellerCampaignStatus {
   DRAFT
   ACTIVE
@@ -302,6 +386,7 @@ model SellerCampaign {
   body             String
   callToAction     String               @map("call_to_action")
   status           SellerCampaignStatus @default(DRAFT)
+  destination      CampaignDestination  @default(CAMPAIGN_PAGE)
   createdAt        DateTime             @default(now()) @map("created_at")
   updatedAt        DateTime             @updatedAt @map("updated_at")
 
@@ -340,12 +425,15 @@ enum LeadChannel {
 
 enum LeadSource {
   CAMPAIGN_PAGE // enquiry form on /c/<link>
+  STOREFRONT // enquiry form on /s/<seller>
+  PRODUCT // enquiry form on /s/<seller>/<item>
 }
 
 model Lead {
   id               String      @id @default(uuid())
   sellerId         String      @map("seller_id")
   sellerCampaignId String?     @map("seller_campaign_id")
+  productId        String?     @map("product_id")
   name             String
   contact          String // phone number, E.164
   message          String?
@@ -361,10 +449,18 @@ model Lead {
 
   seller         Seller          @relation(fields: [sellerId], references: [id], onDelete: Cascade)
   sellerCampaign SellerCampaign? @relation(fields: [sellerCampaignId], references: [id], onDelete: SetNull)
+  product        Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
 
   @@index([sellerId, status, createdAt])
+  @@index([sellerId, contact, createdAt])
   @@index([sellerCampaignId, contact, createdAt])
   @@map("leads")
+}
+
+enum EventTarget {
+  CAMPAIGN // /c/<link>
+  STOREFRONT // /s/<seller>
+  PRODUCT // /s/<seller>/<item>
 }
 
 enum AttributionEventType {
@@ -380,13 +476,17 @@ model AttributionEvent {
   sellerId         String               @map("seller_id")
   sellerCampaignId String?              @map("seller_campaign_id")
   eventType        AttributionEventType @map("event_type")
+  target           EventTarget          @default(CAMPAIGN)
+  productId        String?              @map("product_id")
   channel          LeadChannel          @default(UNKNOWN)
   occurredAt       DateTime             @default(now()) @map("occurred_at")
 
   seller         Seller          @relation(fields: [sellerId], references: [id], onDelete: Cascade)
   sellerCampaign SellerCampaign? @relation(fields: [sellerCampaignId], references: [id], onDelete: SetNull)
+  product        Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
 
   @@index([sessionId])
+  @@index([sellerId, target, eventType, occurredAt])
   @@index([sellerCampaignId, eventType, occurredAt])
   @@map("attribution_events")
 }

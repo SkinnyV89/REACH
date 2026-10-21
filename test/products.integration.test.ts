@@ -20,7 +20,8 @@ run("products (integration)", () => {
     description: null,
     priceType: "FIXED" as const,
     price: "1250.00" as string | null,
-    status: "AVAILABLE" as const,
+    availability: "IN_STOCK" as "IN_STOCK" | "BY_BOOKING" | "OUT_OF_STOCK" | "PRE_ORDER" | "MADE_TO_ORDER",
+    leadTimeDays: null as number | null,
     ...over,
   });
 
@@ -72,7 +73,7 @@ run("products (integration)", () => {
   });
 
   it("stores price on request as null", async () => {
-    const p = await products.createProduct(userA, sellerA, input({ priceType: "ON_REQUEST", price: null, kind: "SERVICE" }));
+    const p = await products.createProduct(userA, sellerA, input({ priceType: "ON_REQUEST", price: null, kind: "SERVICE", availability: "BY_BOOKING" }));
     expect(p.price).toBeNull();
   });
 
@@ -130,6 +131,7 @@ run("products (integration)", () => {
         sellerId: sellerC,
         categoryId: hairId,
         name: `Item ${i}`,
+        slug: `item-${i}`,
       })),
     });
     await expect(products.createProduct(userC, sellerC, input())).rejects.toMatchObject({ code: "LIMIT_REACHED" });

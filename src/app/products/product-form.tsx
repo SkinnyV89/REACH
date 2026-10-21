@@ -7,6 +7,13 @@ import { useFormSubmit } from "@/components/use-form-submit";
 import { Select, TextArea } from "@/components/form-controls";
 import type { FieldErrors } from "@/lib/auth-rules";
 import { PRICE_TYPES, PRODUCT_KINDS } from "@/lib/product-rules";
+import {
+  AVAILABILITY_FOR_KIND,
+  availabilityLabel,
+  defaultAvailability,
+  needsLeadTime,
+  type AvailabilityValue,
+} from "@/lib/storefront-rules";
 import type { ProductFormState } from "./actions";
 
 export type ProductFormValues = {
@@ -16,7 +23,8 @@ export type ProductFormValues = {
   description: string;
   priceType: string;
   price: string;
-  status: string;
+  availability: string;
+  leadTimeDays: string;
 };
 
 type Action = (state: ProductFormState, form: FormData) => Promise<ProductFormState>;
@@ -39,6 +47,8 @@ export function ProductForm({
     return typeof v === "string" ? v : initial[key];
   };
   const [kind, setKind] = useState(value("kind"));
+  // Availability options depend on the kind; switching kind picks a fitting default.
+  const [availability, setAvailability] = useState(value("availability"));
   const [priceType, setPriceType] = useState(value("priceType"));
 
   // Errors for a field disappear as soon as that field is edited.
@@ -77,7 +87,12 @@ export function ProductForm({
                   name="kind"
                   value={k.value}
                   checked={kind === k.value}
-                  onChange={() => setKind(k.value)}
+                  onChange={() => {
+                    setKind(k.value);
+                    if (!(AVAILABILITY_FOR_KIND[k.value] as string[]).includes(availability)) {
+                      setAvailability(defaultAvailability(k.value));
+                    }
+                  }}
                   className="h-4 w-4 accent-brand-600"
                 />
                 <span className="font-medium text-ink-900">{k.label}</span>
@@ -155,15 +170,33 @@ export function ProductForm({
         )}
       </div>
 
-      <Select
-        id="status"
-        label="Availability"
-        defaultValue={value("status")}
-        error={errors.status}
-      >
-        <option value="AVAILABLE">{isService ? "Taking bookings" : "In stock"}</option>
-        <option value="UNAVAILABLE">{isService ? "Not taking bookings right now" : "Out of stock for now"}</option>
-      </Select>
+      <div className="grid gap-5 sm:grid-cols-2">
+        <Select
+          id="availability"
+          label="Availability"
+          value={availability}
+          onChange={(e) => setAvailability(e.target.value)}
+          error={errors.availability}
+          hint="Shown on your storefront with when you last changed it."
+        >
+          {AVAILABILITY_FOR_KIND[isService ? "SERVICE" : "PRODUCT"].map((a) => (
+            <option key={a} value={a}>
+              {availabilityLabel(a, isService ? "SERVICE" : "PRODUCT")}
+            </option>
+          ))}
+        </Select>
+        {needsLeadTime(availability as AvailabilityValue) && (
+          <Field
+            id="leadTimeDays"
+            label="Ready in (days)"
+            optional
+            inputMode="numeric"
+            placeholder="e.g. 5"
+            defaultValue={value("leadTimeDays")}
+            error={errors.leadTimeDays}
+          />
+        )}
+      </div>
 
       <div className="rounded-lg border border-dashed border-ink-300 bg-ink-100/60 p-3 text-sm text-ink-700">
         <span className="font-medium text-ink-900">Photos</span> can&apos;t be added yet. Image upload will be

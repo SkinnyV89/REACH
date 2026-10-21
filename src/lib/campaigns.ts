@@ -252,6 +252,8 @@ export async function personaliseCampaign(
             masterCampaignId: master.id,
             productId,
             uniqueLink: shareLinkPath(seller.slug, generateShareCode()),
+            // New campaigns send people to the storefront (?c=<code>).
+            destination: "STOREFRONT",
             ...copy,
           },
         });

@@ -45,7 +45,7 @@ run("public pages and leads (integration)", () => {
       data: { categoryId: hairId, title: `t-${tag}`, objective: "o", headline: "h {{business_name}}", body: "b", callToAction: "Message us", source: "TEMPLATE" },
     });
     const product = await db.product.create({
-      data: { sellerId: seller.id, categoryId: hairId, name: "Body wave", price: "1250.00" },
+      data: { sellerId: seller.id, categoryId: hairId, name: "Body wave", slug: "body-wave", price: "1250.00" },
     });
     const link = `${label}-${tag}-AbCdEfGh`;
     const campaign = await db.sellerCampaign.create({

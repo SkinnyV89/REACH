@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { AVAILABILITY_FOR_KIND, needsLeadTime, type AvailabilityValue } from "@/lib/storefront-rules";
 
 // Validation and formatting for products and services. Shared by the form
 // (instant feedback) and the server actions (the real enforcement point).
@@ -73,10 +74,31 @@ export const productSchema = z
       .transform((v) => (v === "" ? null : v)),
     priceType: z.enum(["FIXED", "FROM", "ON_REQUEST"], { message: "Choose how you price this." }),
     price: z.string().trim(),
-    status: z.enum(["AVAILABLE", "UNAVAILABLE"], { message: "Choose whether this is available." }),
+    availability: z.enum(["IN_STOCK", "PRE_ORDER", "MADE_TO_ORDER", "OUT_OF_STOCK", "BY_BOOKING"], {
+      message: "Choose whether this is available.",
+    }),
+    leadTimeDays: z.string().trim().optional().default(""),
   })
   .transform((input, ctx) => {
-    if (input.priceType === "ON_REQUEST") return { ...input, price: null };
+    if (!(AVAILABILITY_FOR_KIND[input.kind] as AvailabilityValue[]).includes(input.availability)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["availability"],
+        message: input.kind === "SERVICE" ? "Services are by booking or not taking bookings." : "Choose an option that fits a product.",
+      });
+      return z.NEVER;
+    }
+    let leadTimeDays: number | null = null;
+    if (needsLeadTime(input.availability) && input.leadTimeDays !== "") {
+      const n = Number(input.leadTimeDays);
+      if (!Number.isInteger(n) || n < 1 || n > 180) {
+        ctx.addIssue({ code: "custom", path: ["leadTimeDays"], message: "Enter a number of days between 1 and 180." });
+        return z.NEVER;
+      }
+      leadTimeDays = n;
+    }
+    const base = { ...input, leadTimeDays };
+    if (input.priceType === "ON_REQUEST") return { ...base, price: null };
     const price = parsePrice(input.price);
     if (!price) {
       ctx.addIssue({
@@ -88,7 +110,7 @@ export const productSchema = z
       });
       return z.NEVER;
     }
-    return { ...input, price };
+    return { ...base, price };
   });
 
 export type ProductInput = z.output<typeof productSchema>;

@@ -72,7 +72,7 @@ export function hashIp(ip: string): string {
 }
 
 // Atomic fixed-window counter: returns the count including this request.
-async function hit(key: string, windowMinutes: number): Promise<number> {
+export async function hit(key: string, windowMinutes: number): Promise<number> {
   const rows = await db.$queryRaw<{ count: number }[]>`
     INSERT INTO "public_rate_limits" ("key", "count", "window_start")
     VALUES (${key}, 1, now())
@@ -105,18 +105,44 @@ export async function submitLead(
   if (!campaign) return { ok: false, reason: "not_found" };
   if (campaign.state !== "live") return { ok: false, reason: "unavailable" };
 
-  const { windowMinutes, perCampaign, perIp, duplicateHours } = LEAD_LIMITS;
-  const [campaignHits, ipHits] = await Promise.all([
-    hit(`lead:c:${campaign.id}:${ipHash}`, windowMinutes),
-    hit(`lead:ip:${ipHash}`, windowMinutes),
-  ]);
-  if (campaignHits > perCampaign || ipHits > perIp) return { ok: false, reason: "rate_limited" };
+  return createLeadWithLimits({
+    sellerId: campaign.sellerId,
+    scopeKey: `c:${campaign.id}`,
+    sellerCampaignId: campaign.id,
+    productId: null,
+    source: "CAMPAIGN_PAGE",
+    input,
+    attribution,
+    ipHash,
+  });
+}
 
-  // Same number, same campaign, recently: the seller already has it.
+// Shared by campaign pages and storefronts: rate limits (per page and per
+// connection), the duplicate guard, and the lead + audit insert. The seller
+// is always the one resolved by the caller from a public page, never input.
+export async function createLeadWithLimits(args: {
+  sellerId: string;
+  scopeKey: string; // which public page the limit applies to
+  sellerCampaignId: string | null;
+  productId: string | null;
+  source: "CAMPAIGN_PAGE" | "STOREFRONT" | "PRODUCT";
+  input: LeadFormInput;
+  attribution: { channel: Channel; utmSource: string | null };
+  ipHash: string;
+}): Promise<SubmitResult> {
+  const { windowMinutes, perCampaign, perIp, duplicateHours } = LEAD_LIMITS;
+  const [pageHits, ipHits] = await Promise.all([
+    hit(`lead:${args.scopeKey}:${args.ipHash}`, windowMinutes),
+    hit(`lead:ip:${args.ipHash}`, windowMinutes),
+  ]);
+  if (pageHits > perCampaign || ipHits > perIp) return { ok: false, reason: "rate_limited" };
+
+  // Same number to the same seller about the same thing, recently: they already have it.
   const recent = await db.lead.findFirst({
     where: {
-      sellerCampaignId: campaign.id,
-      contact: input.contact,
+      sellerId: args.sellerId,
+      contact: args.input.contact,
+      ...(args.sellerCampaignId ? { sellerCampaignId: args.sellerCampaignId } : { productId: args.productId }),
       createdAt: { gte: new Date(Date.now() - duplicateHours * 3600_000) },
     },
     select: { id: true },
@@ -126,14 +152,15 @@ export async function submitLead(
   await db.$transaction(async (tx) => {
     const lead = await tx.lead.create({
       data: {
-        sellerId: campaign.sellerId,
-        sellerCampaignId: campaign.id,
-        name: input.name,
-        contact: input.contact,
-        message: input.message,
-        source: "CAMPAIGN_PAGE",
-        channel: attribution.channel,
-        utmSource: attribution.utmSource,
+        sellerId: args.sellerId,
+        sellerCampaignId: args.sellerCampaignId,
+        productId: args.productId,
+        name: args.input.name,
+        contact: args.input.contact,
+        message: args.input.message,
+        source: args.source,
+        channel: args.attribution.channel,
+        utmSource: args.attribution.utmSource,
         consentAt: new Date(),
       },
     });

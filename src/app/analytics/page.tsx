@@ -35,7 +35,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
       <main className="mx-auto max-w-4xl space-y-8 px-4 py-8">
         <div>
           <h1 className="text-2xl font-bold text-ink-900 sm:text-3xl">Analytics</h1>
-          <p className="mt-1 text-ink-700">How your campaigns are doing, from what REACH measured on your campaign pages.</p>
+          <p className="mt-1 text-ink-700">How your storefront and campaigns are doing, from what REACH measured on your pages.</p>
         </div>
 
         {/* Filters: one row above the charts. */}
@@ -233,7 +233,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
             </section>
 
             <p className="text-xs text-ink-500">
-              Views and taps are counted anonymously on your published campaign pages; repeat views from the same browser within 30
+              Views and taps are counted anonymously on your published storefront, item and campaign pages; repeat views from the same browser within 30
               minutes and your own visits aren&apos;t counted. Views are only counted when a page loads with JavaScript, so
               enquiries per view can occasionally be higher than expected. Deleted leads are no longer counted.
             </p>

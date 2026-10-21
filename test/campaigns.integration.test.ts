@@ -180,6 +180,8 @@ run("campaign engine (integration)", () => {
       expect(a.uniqueLink).toMatch(new RegExp(`^${sellerA.slug}-[A-Za-z2-9]{8}$`));
       expect(a.uniqueLink).not.toBe(b.uniqueLink);
       expect(a.status).toBe("DRAFT");
+      // New campaigns send people to the storefront (?c=<code>), not a /c/ page.
+      expect(a.destination).toBe("STOREFRONT");
     });
 
     it("is idempotent: personalising again returns the same campaign", async () => {
@@ -200,20 +202,20 @@ run("campaign engine (integration)", () => {
     it("only features the seller's own current products", async () => {
       generateStructured.mockResolvedValueOnce(aiResult({ ...goodCopy, title: "Product feature test" }));
       const master = await engine.generateMasterCampaign(admin, hairId);
-      const productB = await db.product.create({ data: { sellerId: sellerB.id, categoryId: hairId, name: "B's wig" } });
+      const productB = await db.product.create({ data: { sellerId: sellerB.id, categoryId: hairId, name: "B's wig", slug: "bs-wig" } });
       await expect(engine.personaliseCampaign(sellerA.userId, sellerA, master.id, productB.id)).rejects.toMatchObject({
         code: "INVALID_PRODUCT",
       });
 
       const archived = await db.product.create({
-        data: { sellerId: sellerA.id, categoryId: hairId, name: "Old wig", status: "ARCHIVED" },
+        data: { sellerId: sellerA.id, categoryId: hairId, name: "Old wig", slug: "old-wig", status: "ARCHIVED" },
       });
       await expect(engine.personaliseCampaign(sellerA.userId, sellerA, master.id, archived.id)).rejects.toMatchObject({
         code: "INVALID_PRODUCT",
       });
 
       const productA = await db.product.create({
-        data: { sellerId: sellerA.id, categoryId: hairId, name: "Body wave 22in", price: "1250.00" },
+        data: { sellerId: sellerA.id, categoryId: hairId, name: "Body wave 22in", slug: "body-wave-22in", price: "1250.00" },
       });
       const campaign = await engine.personaliseCampaign(sellerA.userId, sellerA, master.id, productA.id);
       const detail = await engine.getSellerCampaign(sellerA.id, campaign.id);

@@ -7,7 +7,7 @@ import { whatsappGreeting, whatsappLink } from "@/lib/lead-rules";
 import { getPublicCampaign, toPublicView } from "@/lib/public-campaigns";
 import { getCurrentSeller } from "@/lib/session";
 import { submitLeadAction } from "./actions";
-import { LeadForm, ViewTracker, WhatsAppButton } from "./public-widgets";
+import { LeadForm, ViewTracker, WhatsAppButton } from "@/components/public-widgets";
 
 // Campaign pages are shared by link, not found by search: keep sellers'
 // WhatsApp numbers out of search indexes.
@@ -50,7 +50,7 @@ export default async function PublicCampaignPage({ params, searchParams }: Props
 
   return (
     <div className="min-h-screen bg-ink-100">
-      {trackable && <ViewTracker link={link} src={src} />}
+      {trackable && <ViewTracker payload={{ link, type: "VIEW", src }} />}
       {isOwner && (
         <div className="bg-amber-100 px-4 py-2 text-center text-sm text-amber-900">
           {live
