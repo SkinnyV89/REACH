@@ -56,5 +56,7 @@ Seller categories live in the `categories` table, seeded by the `seller_onboardi
 | Sign-up, sign-in, sign-out, protected dashboard | Implemented and tested |
 | Email verification, password reset | Planned: needs an email provider |
 | Seller onboarding: 3-step wizard, categories, public slug | Implemented and tested |
-| Logo upload | Planned: needs file storage (e.g. Vercel Blob or S3) |
+| Products & services: add, edit, archive/restore, rand pricing | Implemented and tested |
+| Logo and product photo upload | Planned: needs file storage (e.g. Vercel Blob or S3) |
+| Product variants (sizes, colours) | Planned |
 | Public seller page at `/seller/<slug>` | Planned: Phase 3 (address is reserved at onboarding) |
