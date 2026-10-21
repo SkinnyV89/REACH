@@ -328,36 +328,77 @@ enum LeadStatus {
   LOST
 }
 
+// Where a visitor came from, from the ?src= parameter on a share link.
+// UNKNOWN means no (recognised) parameter: never guessed.
+enum LeadChannel {
+  WHATSAPP
+  FACEBOOK
+  INSTAGRAM
+  TIKTOK
+  UNKNOWN
+}
+
+enum LeadSource {
+  CAMPAIGN_PAGE // enquiry form on /c/<link>
+}
+
 model Lead {
-  id               String     @id @default(uuid())
-  sellerId         String     @map("seller_id")
-  sellerCampaignId String?    @map("seller_campaign_id")
-  name             String?
-  contact          String // Phone or email
+  id               String      @id @default(uuid())
+  sellerId         String      @map("seller_id")
+  sellerCampaignId String?     @map("seller_campaign_id")
+  name             String
+  contact          String // phone number, E.164
   message          String?
-  status           LeadStatus @default(NEW)
-  createdAt        DateTime   @default(now()) @map("created_at")
-  updatedAt        DateTime   @updatedAt @map("updated_at")
+  status           LeadStatus  @default(NEW)
+  source           LeadSource
+  channel          LeadChannel @default(UNKNOWN)
+  // Raw ?src= value as received (sanitised), kept as evidence for attribution.
+  utmSource        String?     @map("utm_source")
+  // When the customer ticked the consent box (POPIA).
+  consentAt        DateTime    @map("consent_at")
+  createdAt        DateTime    @default(now()) @map("created_at")
+  updatedAt        DateTime    @updatedAt @map("updated_at")
 
-  seller         Seller          @relation(fields: [sellerId], references: [id])
-  sellerCampaign SellerCampaign? @relation(fields: [sellerCampaignId], references: [id])
+  seller         Seller          @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  sellerCampaign SellerCampaign? @relation(fields: [sellerCampaignId], references: [id], onDelete: SetNull)
 
+  @@index([sellerId, status, createdAt])
+  @@index([sellerCampaignId, contact, createdAt])
   @@map("leads")
 }
 
-model AttributionEvent {
-  id               String   @id @default(uuid())
-  sessionId        String   @map("session_id")
-  sellerId         String   @map("seller_id")
-  sellerCampaignId String?  @map("seller_campaign_id")
-  eventType        String   @map("event_type") // VIEW | CLICK | WHATSAPP_CLICK
-  occurredAt       DateTime @default(now()) @map("occurred_at")
+enum AttributionEventType {
+  VIEW // campaign page opened
+  WHATSAPP_CLICK // "Chat on WhatsApp" tapped
+}
 
-  seller         Seller          @relation(fields: [sellerId], references: [id])
-  sellerCampaign SellerCampaign? @relation(fields: [sellerCampaignId], references: [id])
+// Anonymous engagement events. sessionId is a random first-party cookie
+// value; no personal data is stored here.
+model AttributionEvent {
+  id               String               @id @default(uuid())
+  sessionId        String               @map("session_id")
+  sellerId         String               @map("seller_id")
+  sellerCampaignId String?              @map("seller_campaign_id")
+  eventType        AttributionEventType @map("event_type")
+  channel          LeadChannel          @default(UNKNOWN)
+  occurredAt       DateTime             @default(now()) @map("occurred_at")
+
+  seller         Seller          @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  sellerCampaign SellerCampaign? @relation(fields: [sellerCampaignId], references: [id], onDelete: SetNull)
 
   @@index([sessionId])
+  @@index([sellerCampaignId, eventType, occurredAt])
   @@map("attribution_events")
+}
+
+// Fixed-window counters for public endpoints (lead form). Keys contain a
+// hashed IP, never the raw address.
+model PublicRateLimit {
+  key         String   @id
+  count       Int
+  windowStart DateTime @map("window_start")
+
+  @@map("public_rate_limits")
 }
 
 // ---------------------------------------------------------------------------
