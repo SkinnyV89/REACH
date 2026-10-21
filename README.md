@@ -71,6 +71,17 @@ npm run campaign:generate -- hair-wigs-weaves --as you@example.com
 
 Each AI generation costs roughly one or two Claude requests. Without `ANTHROPIC_API_KEY` the command creates template copy instead.
 
+## Public campaign pages and leads
+
+- **`/c/<link>`** renders a seller's campaign publicly, but only after the seller presses **Publish**. Drafts and paused campaigns show "This campaign isn't available right now"; the owner sees a preview instead. Pages send `noindex, nofollow` so sellers' WhatsApp numbers stay out of search engines.
+- Only public fields leave the server (`toPublicView` in `src/lib/public-campaigns.ts`). The featured product's name and price come from the products table; archived products are hidden.
+- **Chat on WhatsApp** opens `wa.me` with a pre-typed greeting. It doesn't send anything by itself.
+- **Enquiry form** (name, phone, optional message, required consent) creates a `Lead` for the campaign's seller. The seller is resolved on the server from the campaign; the request can't choose it. Abuse protection: a honeypot field, 5 enquiries per connection per campaign and 30 per connection overall every 10 minutes (IP addresses are HMAC-hashed), and the same number on the same campaign within 24 hours isn't saved twice.
+- **Attribution:** `?src=whatsapp|facebook|instagram|tiktok` on a share link is recorded as the lead's channel; anything else is `UNKNOWN`, never guessed. The raw value is kept as `utm_source`.
+- **Anonymous tracking:** `/api/track` records page views and WhatsApp taps for published campaigns, identified only by a random first-party `reach_vid` cookie (httpOnly, 180 days). Repeat views within 30 minutes aren't counted, and owners' own visits are never counted.
+- **`/leads`** lists the seller's own leads with status tabs, call and WhatsApp buttons, source campaign and channel. Status changes match on lead id **and** seller id, and are audited.
+- **`/privacy`** is a plain-language notice, marked *Draft, pending legal review*.
+
 ## Categories
 
 Seller categories live in the `categories` table, seeded by the `seller_onboarding` migration. They are data, not code: rename, reorder (`sort_order`) or hide one (`is_active = false`) without a deploy. A category in use by sellers cannot be deleted; deactivate it instead.
@@ -89,4 +100,8 @@ Seller categories live in the `categories` table, seeded by the `seller_onboardi
 | Campaign library, personalisation, share links | Implemented and tested |
 | Admin screen for generating campaigns | Planned (server action and CLI exist) |
 | Seller editing of personalised copy | Planned |
-| Public seller page `/seller/<slug>` and campaign page `/c/<link>` | Planned: Phase 3 (addresses are reserved) |
+| Public campaign page `/c/<link>`, publish/pause, WhatsApp click-to-chat | Implemented and tested |
+| Lead capture, `/leads` management, channel attribution, view/tap counts | Implemented and tested |
+| Privacy notice | Draft, pending legal review |
+| New-lead notifications (email/SMS) | Planned: needs a provider |
+| Public seller page `/seller/<slug>` | Planned (address is reserved) |

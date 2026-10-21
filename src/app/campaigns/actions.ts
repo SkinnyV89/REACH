@@ -1,8 +1,9 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { CampaignError, personaliseCampaign } from "@/lib/campaigns";
+import { CampaignError, personaliseCampaign, setSellerCampaignStatus } from "@/lib/campaigns";
 import { requireSeller } from "@/lib/session";
 
 export type PersonaliseState = { formError?: string };
@@ -30,4 +31,24 @@ export async function personaliseAction(
     return { formError: "We couldn't create your campaign. Please try again." };
   }
   redirect(`/campaigns/${campaignId}?created=1`);
+}
+
+export type StatusState = { formError?: string };
+
+export async function setCampaignStatusAction(
+  campaignId: string,
+  status: "ACTIVE" | "PAUSED",
+): Promise<StatusState> {
+  const { session, seller } = await requireSeller();
+  if (!z.string().uuid().safeParse(campaignId).success) return { formError: "That campaign couldn't be found." };
+  try {
+    await setSellerCampaignStatus(session.user.id, seller.id, campaignId, status);
+  } catch (error) {
+    if (error instanceof CampaignError) return { formError: error.message };
+    console.error("[campaigns] status change failed:", error instanceof Error ? error.name : typeof error);
+    return { formError: "We couldn't update your campaign. Please try again." };
+  }
+  revalidatePath(`/campaigns/${campaignId}`);
+  revalidatePath("/campaigns");
+  return {};
 }

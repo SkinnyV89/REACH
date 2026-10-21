@@ -300,3 +300,25 @@ export async function getSellerCampaign(sellerId: string, campaignId: string) {
   const product = campaign.product && { ...campaign.product, price: campaign.product.price?.toFixed(2) ?? null };
   return { ...campaign, product };
 }
+
+// Publish (ACTIVE) or pause a seller's own campaign. Only published
+// campaigns are reachable at their public link.
+export async function setSellerCampaignStatus(
+  userId: string,
+  sellerId: string,
+  campaignId: string,
+  status: "ACTIVE" | "PAUSED",
+) {
+  return db.$transaction(async (tx) => {
+    const { count } = await tx.sellerCampaign.updateMany({ where: { id: campaignId, sellerId }, data: { status } });
+    if (count === 0) throw new CampaignError("NOT_FOUND", "That campaign could not be found.");
+    await tx.auditLog.create({
+      data: {
+        actorId: userId,
+        action: status === "ACTIVE" ? "seller_campaign.published" : "seller_campaign.paused",
+        entity: "seller_campaign",
+        entityId: campaignId,
+      },
+    });
+  });
+}
