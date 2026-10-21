@@ -82,6 +82,26 @@ Each AI generation costs roughly one or two Claude requests. Without `ANTHROPIC_
 - **`/leads`** lists the seller's own leads with status tabs, call and WhatsApp buttons, source campaign and channel. Status changes match on lead id **and** seller id, and are audited.
 - **`/privacy`** is a plain-language notice, marked *Draft, pending legal review*.
 
+### Deleting leads (POPIA requests)
+
+- Sellers delete a lead from `/leads` (two-step confirm). The delete matches on lead id **and** seller id, and the audit log records only the lead id and who deleted it.
+- Requests emailed to REACH are handled with the operator command, which deletes that number's leads across all sellers:
+
+```bash
+npm run lead:delete -- "082 123 4567"            # dry run: shows what would be deleted
+npm run lead:delete -- "082 123 4567" --confirm  # deletes permanently (audited as lead.deleted_on_request)
+```
+
+## Analytics
+
+`/analytics` (`src/lib/analytics.ts`) reports only what REACH measured: page views and WhatsApp taps from `attribution_events`, and enquiries from `leads`. "Converted" counts leads the seller marked Converted. Periods: last 7, 30 (default) or 90 days, or all time.
+
+- **Funnel:** views, taps and enquiries, with taps and enquiries each shown as a share of views (they're separate actions, not nested steps). A rate with nothing to divide by shows "—", never 0%.
+- **Channels:** enquiries per channel as a bar chart, with a table of views, taps, enquiries and enquiries per view. Every channel is listed, even at zero; "Unknown" is shown in grey and always last.
+- **Campaigns:** each seller campaign with its master campaign, sorted by enquiries. Shown as cards on phones and a table on wider screens.
+- **Highlights:** plain statements from the numbers (top channel, untagged enquiries, best campaign), only when there's data behind them. No predictions or advice.
+- Deleted leads are no longer counted.
+
 ## Categories
 
 Seller categories live in the `categories` table, seeded by the `seller_onboarding` migration. They are data, not code: rename, reorder (`sort_order`) or hide one (`is_active = false`) without a deploy. A category in use by sellers cannot be deleted; deactivate it instead.
@@ -103,5 +123,8 @@ Seller categories live in the `categories` table, seeded by the `seller_onboardi
 | Public campaign page `/c/<link>`, publish/pause, WhatsApp click-to-chat | Implemented and tested |
 | Lead capture, `/leads` management, channel attribution, view/tap counts | Implemented and tested |
 | Privacy notice | Draft, pending legal review |
+| Lead deletion (seller UI and operator command) | Implemented and tested |
+| Analytics: funnel, channel breakdown, campaign comparison | Implemented and tested |
+| Dark mode | Not implemented anywhere in the app yet |
 | New-lead notifications (email/SMS) | Planned: needs a provider |
 | Public seller page `/seller/<slug>` | Planned (address is reserved) |

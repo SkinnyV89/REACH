@@ -216,6 +216,37 @@ run("public pages and leads (integration)", () => {
     });
   });
 
+  describe("deleting leads (POPIA requests)", () => {
+    it("won't let seller B delete seller A's lead", async () => {
+      const [lead] = await leads.listLeads(A.sellerId);
+      await expect(leads.deleteLead(B.userId, B.sellerId, lead.id)).rejects.toMatchObject({ code: "NOT_FOUND" });
+      expect(await db.lead.findUnique({ where: { id: lead.id } })).not.toBeNull();
+    });
+
+    it("lets the owner delete permanently, audited without personal details", async () => {
+      await pub.submitLead(A.link, enquiry({ name: "Delete Me", contact: "+27725559999" }), { channel: "UNKNOWN", utmSource: null }, ip());
+      const lead = await db.lead.findFirstOrThrow({ where: { contact: "+27725559999" } });
+      await leads.deleteLead(A.userId, A.sellerId, lead.id);
+      expect(await db.lead.findUnique({ where: { id: lead.id } })).toBeNull();
+      const entry = await db.auditLog.findFirstOrThrow({ where: { entityId: lead.id, action: "lead.deleted" } });
+      expect(entry.actorId).toBe(A.userId);
+      expect(JSON.stringify(entry)).not.toMatch(/Delete Me|27725559999/);
+      // deleting again reports not found rather than pretending
+      await expect(leads.deleteLead(A.userId, A.sellerId, lead.id)).rejects.toMatchObject({ code: "NOT_FOUND" });
+    });
+
+    it("deletes a person's leads across sellers for requests sent to REACH", async () => {
+      const contact = "+27725558888";
+      await pub.submitLead(A.link, enquiry({ contact }), { channel: "UNKNOWN", utmSource: null }, ip());
+      await pub.submitLead(B.link, enquiry({ contact }), { channel: "UNKNOWN", utmSource: null }, ip());
+      const other = await db.lead.count({ where: { contact: { not: contact } } });
+      expect(await leads.deleteLeadsByContact(contact, null)).toBe(2);
+      expect(await db.lead.count({ where: { contact } })).toBe(0);
+      expect(await db.lead.count({ where: { contact: { not: contact } } })).toBe(other);
+      expect(await leads.deleteLeadsByContact(contact, null)).toBe(0);
+    });
+  });
+
   describe("anonymous engagement", () => {
     it("records views and WhatsApp taps, ignoring quick repeats", async () => {
       const session = crypto.randomUUID();

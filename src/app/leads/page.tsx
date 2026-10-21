@@ -5,6 +5,7 @@ import { CHANNELS, LEAD_STATUSES, leadStatusSchema, whatsappLink } from "@/lib/l
 import { countLeadsByStatus, listLeads } from "@/lib/leads";
 import { formatWhatsappNumber } from "@/lib/seller-profile";
 import { requireSeller } from "@/lib/session";
+import { DeleteLeadButton } from "./delete-lead";
 import { LeadStatusSelect } from "./status-select";
 
 export const metadata: Metadata = { title: "Leads · REACH" };
@@ -29,6 +30,10 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
       <main className="mx-auto max-w-4xl px-4 py-8">
         <h1 className="text-2xl font-bold text-ink-900 sm:text-3xl">Leads</h1>
         <p className="mt-1 text-ink-700">People who asked to hear from you through your campaigns.</p>
+        <p className="mt-2 text-sm text-ink-500">
+          If someone asks you to delete their details, use Delete on their lead. It removes their name, number and
+          message permanently.
+        </p>
 
         <nav aria-label="Filter by status" className="mt-6 flex gap-2 overflow-x-auto pb-1 text-sm">
           {[{ value: undefined, label: "All", count: counts.total }, ...LEAD_STATUSES.map((s) => ({ ...s, count: counts[s.value] ?? 0 }))].map(
@@ -100,6 +105,9 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                   >
                     Call
                   </a>
+                  <div className="ml-auto">
+                    <DeleteLeadButton leadId={lead.id} leadName={lead.name} />
+                  </div>
                 </div>
 
                 <p className="mt-3 text-xs text-ink-500">

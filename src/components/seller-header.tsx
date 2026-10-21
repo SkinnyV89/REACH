@@ -1,13 +1,15 @@
 import Link from "next/link";
+import { ActiveTabIntoView } from "@/components/active-tab-into-view";
 import { SignOutButton } from "@/components/sign-out-button";
 import { db } from "@/lib/db";
 import { getCurrentSeller } from "@/lib/session";
 
 const NAV = [
-  { href: "/dashboard", label: "Dashboard", key: "dashboard" },
+  { href: "/dashboard", label: "Dashboard", short: "Home", key: "dashboard" },
   { href: "/products", label: "Products & services", short: "Products", key: "products" },
   { href: "/campaigns", label: "Campaigns", key: "campaigns" },
   { href: "/leads", label: "Leads", key: "leads" },
+  { href: "/analytics", label: "Analytics", short: "Stats", key: "analytics" },
 ] as const;
 
 export type SellerSection = (typeof NAV)[number]["key"];
@@ -28,7 +30,7 @@ export async function SellerHeader({ email, current }: { email: string; current:
         </div>
       </div>
       <nav aria-label="Seller" className="mx-auto max-w-4xl px-4">
-        <ul className="-mb-px flex gap-4 overflow-x-auto text-sm font-medium sm:gap-5">
+        <ul className="-mb-px flex gap-3 overflow-x-auto text-sm font-medium sm:gap-5">
           {NAV.map((item) => (
             <li key={item.key}>
               <Link
@@ -59,6 +61,7 @@ export async function SellerHeader({ email, current }: { email: string; current:
           ))}
         </ul>
       </nav>
+      <ActiveTabIntoView navLabel="Seller" />
     </header>
   );
 }

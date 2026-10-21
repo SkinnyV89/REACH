@@ -58,3 +58,28 @@ export async function campaignStats(sellerId: string, sellerCampaignId: string) 
   ]);
   return { views, clicks, leads };
 }
+
+// Permanently deletes one of the seller's own leads, e.g. on a customer's
+// POPIA deletion request. The audit entry keeps only the lead id and who
+// deleted it: no name, number or message.
+export async function deleteLead(userId: string, sellerId: string, leadId: string) {
+  return db.$transaction(async (tx) => {
+    const { count } = await tx.lead.deleteMany({ where: { id: leadId, sellerId } });
+    if (count === 0) throw new LeadError("NOT_FOUND", "That lead could not be found.");
+    await tx.auditLog.create({ data: { actorId: userId, action: "lead.deleted", entity: "lead", entityId: leadId } });
+  });
+}
+
+// Operator path for deletion requests sent to REACH directly (see /privacy):
+// every lead with this number, across all sellers.
+export async function deleteLeadsByContact(contact: string, actorId: string | null) {
+  return db.$transaction(async (tx) => {
+    const leads = await tx.lead.findMany({ where: { contact }, select: { id: true } });
+    if (leads.length === 0) return 0;
+    await tx.lead.deleteMany({ where: { id: { in: leads.map((l) => l.id) } } });
+    await tx.auditLog.createMany({
+      data: leads.map((l) => ({ actorId, action: "lead.deleted_on_request", entity: "lead", entityId: l.id })),
+    });
+    return leads.length;
+  });
+}
