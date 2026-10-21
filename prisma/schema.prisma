@@ -1,0 +1,243 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// IDENTITY & ACCESS
+// ---------------------------------------------------------------------------
+
+enum UserRole {
+  ADMIN
+  SELLER
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  role          UserRole  @default(SELLER)
+  name          String    @default("")
+  image         String?
+  emailVerified Boolean   @default(false) @map("email_verified")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  seller      Seller?
+  auditLogs   AuditLog[]
+  aiJobs      AIJob[]
+
+  sessions Session[]
+  accounts Account[]
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model Account {
+  id                    String    @id @default(uuid())
+  userId                String    @map("user_id")
+  accountId             String    @map("account_id")
+  providerId            String    @map("provider_id")
+  accessToken           String?   @map("access_token")
+  refreshToken          String?   @map("refresh_token")
+  idToken               String?   @map("id_token")
+  accessTokenExpiresAt  DateTime? @map("access_token_expires_at")
+  refreshTokenExpiresAt DateTime? @map("refresh_token_expires_at")
+  scope                 String?
+  password              String?   
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, accountId])
+  @@map("accounts")
+}
+
+model Verification {
+  id         String   @id @default(uuid())
+  identifier String
+  value      String
+  expiresAt  DateTime @map("expires_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("verifications")
+}
+
+// ---------------------------------------------------------------------------
+// SELLER PROFILE (Replaces SkinBuy Distributor/Brand)
+// ---------------------------------------------------------------------------
+
+model Seller {
+  id            String   @id @default(uuid())
+  userId        String   @unique @map("user_id")
+  slug          String   @unique
+  businessName  String   @map("business_name")
+  description   String?
+  whatsappNumber String? @map("whatsapp_number")
+  location      String?
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  user               User                 @relation(fields: [userId], references: [id])
+  products           Product[]
+  sellerCampaigns    SellerCampaign[]
+  leads              Lead[]
+  attributionEvents  AttributionEvent[]
+
+  @@map("sellers")
+}
+
+// ---------------------------------------------------------------------------
+// PRODUCT CATALOGUE
+// ---------------------------------------------------------------------------
+
+model Product {
+  id          String   @id @default(uuid())
+  sellerId    String   @map("seller_id")
+  name        String
+  category    String
+  description String?
+  media       Json     @default("[]")
+  price       Decimal? @db.Decimal(10, 2)
+  status      String   @default("active") // active | archived
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  seller Seller @relation(fields: [sellerId], references: [id])
+
+  @@map("products")
+}
+
+// ---------------------------------------------------------------------------
+// CAMPAIGN ENGINE (Master vs Seller Personalisation)
+// ---------------------------------------------------------------------------
+
+// The reusable template created by REACH AI
+model MasterCampaign {
+  id          String   @id @default(uuid())
+  category    String
+  title       String
+  objective   String
+  baseCopy    String   @map("base_copy")
+  assets      Json     @default("[]") // AI generated images/video concepts
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  sellerCampaigns SellerCampaign[]
+
+  @@map("master_campaigns")
+}
+
+// The personalised version created by the Seller
+model SellerCampaign {
+  id               String   @id @default(uuid())
+  masterCampaignId String   @map("master_campaign_id")
+  sellerId         String   @map("seller_id")
+  productId        String?  @map("product_id")
+  uniqueLink       String   @unique @map("unique_link")
+  customCopy       String   @map("custom_copy")
+  status           String   @default("draft") // draft | active | paused
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  masterCampaign MasterCampaign @relation(fields: [masterCampaignId], references: [id])
+  seller         Seller         @relation(fields: [sellerId], references: [id])
+  leads          Lead[]
+  attributionEvents AttributionEvent[]
+
+  @@map("seller_campaigns")
+}
+
+// ---------------------------------------------------------------------------
+// LEADS & ATTRIBUTION
+// ---------------------------------------------------------------------------
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  CONVERTED
+  LOST
+}
+
+model Lead {
+  id               String     @id @default(uuid())
+  sellerId         String     @map("seller_id")
+  sellerCampaignId String?    @map("seller_campaign_id")
+  name             String?
+  contact          String     // Phone or email
+  message          String?
+  status           LeadStatus @default(NEW)
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @updatedAt @map("updated_at")
+
+  seller         Seller          @relation(fields: [sellerId], references: [id])
+  sellerCampaign SellerCampaign? @relation(fields: [sellerCampaignId], references: [id])
+
+  @@map("leads")
+}
+
+model AttributionEvent {
+  id               String   @id @default(uuid())
+  sessionId        String   @map("session_id")
+  sellerId         String   @map("seller_id")
+  sellerCampaignId String?  @map("seller_campaign_id")
+  eventType        String   @map("event_type") // VIEW | CLICK | WHATSAPP_CLICK
+  occurredAt       DateTime @default(now()) @map("occurred_at")
+
+  seller         Seller          @relation(fields: [sellerId], references: [id])
+  sellerCampaign SellerCampaign? @relation(fields: [sellerCampaignId], references: [id])
+
+  @@index([sessionId])
+  @@map("attribution_events")
+}
+
+// ---------------------------------------------------------------------------
+// AI & AUDIT
+// ---------------------------------------------------------------------------
+
+model AIJob {
+  id           String   @id @default(uuid())
+  taskType     String   @map("task_type") // CAMPAIGN_GENERATION | IMAGE_GENERATION
+  status       String   @default("pending") // pending | completed | failed
+  requestedBy  String   @map("requested_by")
+  tokensUsed   Int?     @map("tokens_used")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  requester User @relation(fields: [requestedBy], references: [id])
+
+  @@map("ai_jobs")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  actorId   String?  @map("actor_id")
+  action    String
+  entity    String
+  entityId  String?  @map("entity_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  actor User? @relation(fields: [actorId], references: [id])
+
+  @@map("audit_logs")
+}
