@@ -1,6 +1,6 @@
 // Exercises the real Better Auth handler and Prisma against a database.
 // Opt-in: set TEST_DATABASE_URL to a disposable, migrated database.
-// It only deletes the users it creates (emails under @reach-test.invalid).
+// It only deletes the users it creates (emails ending -<run tag>@reach-test.invalid).
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const url = process.env.TEST_DATABASE_URL;
@@ -9,7 +9,8 @@ const run = describe.skipIf(!url);
 run("auth (integration)", () => {
   let auth: typeof import("@/lib/auth").auth;
   let db: typeof import("@/lib/db").db;
-  const email = `seller-${Date.now()}@reach-test.invalid`;
+  const tag = Date.now();
+  const email = `seller-${tag}@reach-test.invalid`;
   const password = "correct-horse-battery";
   const base = "http://localhost:3000/api/auth";
 
@@ -42,7 +43,8 @@ run("auth (integration)", () => {
 
   afterAll(async () => {
     if (!db) return;
-    await db.user.deleteMany({ where: { email: { endsWith: "@reach-test.invalid" } } });
+    // Only this file's users: other test files may be running in parallel.
+    await db.user.deleteMany({ where: { email: { endsWith: `-${tag}@reach-test.invalid` } } });
     await db.$disconnect();
   });
 

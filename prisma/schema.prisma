@@ -113,7 +113,8 @@ model Category {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  sellers SellerCategory[]
+  sellers  SellerCategory[]
+  products Product[]
 
   @@map("categories")
 }
@@ -195,20 +196,45 @@ model SellerCategory {
 // PRODUCT CATALOGUE
 // ---------------------------------------------------------------------------
 
+enum ProductKind {
+  PRODUCT
+  SERVICE
+}
+
+enum PriceType {
+  FIXED // "R250"
+  FROM // "From R250" — common for services and made-to-order items
+  ON_REQUEST // "Price on request"; price is null
+}
+
+enum ProductStatus {
+  AVAILABLE
+  UNAVAILABLE // temporarily out of stock / not taking bookings
+  ARCHIVED // hidden from the seller's list and from campaigns
+}
+
 model Product {
-  id          String   @id @default(uuid())
-  sellerId    String   @map("seller_id")
+  id          String        @id @default(uuid())
+  sellerId    String        @map("seller_id")
+  categoryId  String        @map("category_id")
+  kind        ProductKind   @default(PRODUCT)
   name        String
-  category    String
   description String?
-  media       Json     @default("[]")
-  price       Decimal? @db.Decimal(10, 2)
-  status      String   @default("active") // active | archived
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  // Image references. Stays empty until file storage is configured.
+  media       Json          @default("[]")
+  priceType   PriceType     @default(FIXED) @map("price_type")
+  price       Decimal?      @db.Decimal(10, 2)
+  currency    String        @default("ZAR")
+  status      ProductStatus @default(AVAILABLE)
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
 
-  seller Seller @relation(fields: [sellerId], references: [id])
+  seller          Seller           @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  category        Category         @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  sellerCampaigns SellerCampaign[]
 
+  @@index([sellerId, status])
+  @@index([categoryId])
   @@map("products")
 }
 
@@ -246,6 +272,7 @@ model SellerCampaign {
 
   masterCampaign    MasterCampaign     @relation(fields: [masterCampaignId], references: [id])
   seller            Seller             @relation(fields: [sellerId], references: [id])
+  product           Product?           @relation(fields: [productId], references: [id], onDelete: SetNull)
   leads             Lead[]
   attributionEvents AttributionEvent[]
 

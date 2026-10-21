@@ -1,6 +1,6 @@
 // Runs the onboarding operations against a real database.
 // Opt-in: set TEST_DATABASE_URL to a disposable, migrated database.
-// It only deletes the users it creates (emails under @reach-test.invalid).
+// It only deletes the users it creates (emails ending -<run tag>@reach-test.invalid).
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const url = process.env.TEST_DATABASE_URL;
@@ -42,7 +42,8 @@ run("seller onboarding (integration)", () => {
 
   afterAll(async () => {
     if (!db) return;
-    const users = await db.user.findMany({ where: { email: { endsWith: "@reach-test.invalid" } }, select: { id: true } });
+    // Only this file's users: other test files may be running in parallel.
+    const users = await db.user.findMany({ where: { email: { endsWith: `-${tag}@reach-test.invalid` } }, select: { id: true } });
     const ids = users.map((u) => u.id);
     await db.auditLog.deleteMany({ where: { actorId: { in: ids } } });
     await db.user.deleteMany({ where: { id: { in: ids } } });

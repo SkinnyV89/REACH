@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useActionState, useState, type FormEvent } from "react";
 import type { FieldErrors } from "@/lib/auth-rules";
 import { Field, FormError, SubmitButton } from "@/components/auth-form";
+import { useFormSubmit } from "@/components/use-form-submit";
 import { CheckboxCards, Select, TextArea } from "@/components/form-controls";
 import { FULFILMENT_OPTIONS, MAX_CATEGORIES, PROVINCES } from "@/lib/seller-profile";
 import {
@@ -65,9 +66,10 @@ export function BusinessStep({
   saved: { businessName: string; whatsappNumber: string | null; description: string | null } | null;
 }) {
   const [state, action, pending] = useActionState(saveBusinessAction, {});
+  const onSubmit = useFormSubmit(action);
   const { errors, onChange } = useLiveErrors(state);
   return (
-    <form action={action} onChange={onChange} noValidate className="space-y-5">
+    <form onSubmit={onSubmit} onChange={onChange} noValidate className="space-y-5">
       <FormError message={state.formError} />
       <Field
         id="businessName"
@@ -117,13 +119,14 @@ export function CategoriesStep({
   };
 }) {
   const [state, action, pending] = useActionState(saveCategoriesAction, {});
+  const onSubmit = useFormSubmit(action);
   const { errors, onChange } = useLiveErrors(state);
   const [chosen, setChosen] = useState<string[]>(() => pickList(state, "categoryIds", saved.categoryIds));
   const [fulfilment, setFulfilment] = useState<string[]>(() => pickList(state, "fulfilment", saved.fulfilment));
   const atLimit = chosen.length >= MAX_CATEGORIES;
 
   return (
-    <form action={action} onChange={onChange} noValidate className="space-y-6">
+    <form onSubmit={onSubmit} onChange={onChange} noValidate className="space-y-6">
       <FormError message={state.formError} />
       <CheckboxCards
         name="categoryIds"
@@ -201,9 +204,10 @@ export function ExtrasStep({
   isActive: boolean;
 }) {
   const [state, action, pending] = useActionState(completeOnboardingAction, {});
+  const onSubmit = useFormSubmit(action);
   const { errors, onChange } = useLiveErrors(state);
   return (
-    <form action={action} onChange={onChange} noValidate className="space-y-5">
+    <form onSubmit={onSubmit} onChange={onChange} noValidate className="space-y-5">
       <FormError message={state.formError} />
       <p className="text-sm text-ink-700">
         All optional. Links help customers trust you and see more of your work. You can add them later.

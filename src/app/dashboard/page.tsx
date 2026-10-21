@@ -3,24 +3,40 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { FULFILMENT_OPTIONS, formatWhatsappNumber, provinceLabel } from "@/lib/seller-profile";
 import { requireSeller } from "@/lib/session";
-import { SignOutButton } from "./sign-out-button";
+import { SellerHeader } from "@/components/seller-header";
+import { countProducts } from "@/lib/products";
 
 export const metadata: Metadata = { title: "Dashboard · REACH" };
 
-type StepState = "done" | "later";
+type StepState = "done" | "next" | "later";
 
 // The seller journey. States reflect what actually exists in the product
 // today; steps that are not built yet are labelled, not linked.
-const JOURNEY: { title: string; detail: string; state: StepState }[] = [
+function journey(productCount: number): { title: string; detail: string; state: StepState; href?: string }[] {
+  return [
   { title: "Create your account", detail: "You're signed in.", state: "done" },
   { title: "Set up your business profile", detail: "Customers will know who you are and how to reach you.", state: "done" },
-  { title: "Add a product or service", detail: "What you want customers to discover.", state: "later" },
+  productCount > 0
+    ? {
+        title: "Add a product or service",
+        detail: `${productCount} listed. Add more any time.`,
+        state: "done",
+        href: "/products",
+      }
+    : {
+        title: "Add a product or service",
+        detail: "What you want customers to discover.",
+        state: "next",
+        href: "/products/new",
+      },
   { title: "Personalise a campaign", detail: "A professional campaign made yours.", state: "later" },
   { title: "Share it and capture leads", detail: "Reach people beyond your contacts.", state: "later" },
-];
+  ];
+}
 
 const badge: Record<StepState, { label: string; className: string }> = {
   done: { label: "Done", className: "bg-brand-100 text-brand-700" },
+  next: { label: "Up next", className: "bg-amber-100 text-amber-800" },
   later: { label: "Coming soon", className: "bg-ink-100 text-ink-500" },
 };
 
@@ -31,11 +47,15 @@ export default async function DashboardPage({
 }) {
   const { session, seller } = await requireSeller();
   const { welcome } = await searchParams;
-  const categories = await db.sellerCategory.findMany({
+  const [categories, productCounts] = await Promise.all([
+    db.sellerCategory.findMany({
     where: { sellerId: seller.id },
     select: { category: { select: { name: true } } },
     orderBy: { category: { sortOrder: "asc" } },
-  });
+    }),
+    countProducts(seller.id),
+  ]);
+  const steps = journey(productCounts.active);
   const firstName = session.user.name.split(" ")[0] || "there";
   const place = [seller.location, provinceLabel(seller.province)].filter(Boolean).join(", ");
   const fulfilment = FULFILMENT_OPTIONS.filter((f) => seller.fulfilment.includes(f.value)).map((f) => f.label);
@@ -48,21 +68,19 @@ export default async function DashboardPage({
 
   return (
     <div className="min-h-screen bg-ink-100">
-      <header className="border-b border-ink-300/60 bg-white">
-        <div className="mx-auto flex max-w-4xl items-center justify-between gap-4 px-4 py-3">
-          <span className="text-xl font-extrabold tracking-tight text-brand-700">REACH</span>
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="hidden truncate text-sm text-ink-500 sm:inline">{session.user.email}</span>
-            <SignOutButton />
-          </div>
-        </div>
-      </header>
+      <SellerHeader email={session.user.email} current="dashboard" />
 
       <main className="mx-auto max-w-4xl px-4 py-8">
         {welcome && (
           <div role="status" className="mb-6 rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-brand-900">
             <p className="font-semibold">Your business profile is set up.</p>
-            <p className="text-sm">Next, you&apos;ll be able to add your products and personalise your first campaign.</p>
+            <p className="text-sm">
+              Next,{" "}
+              <Link href="/products/new" className="font-semibold underline">
+                add your first product or service
+              </Link>
+              .
+            </p>
           </div>
         )}
 
@@ -144,7 +162,7 @@ export default async function DashboardPage({
               Your path to more customers
             </h2>
             <ol className="mt-4 divide-y divide-ink-100">
-              {JOURNEY.map((step, i) => (
+              {steps.map((step, i) => (
                 <li key={step.title} className="flex items-start gap-4 py-4">
                   <span
                     aria-hidden
@@ -156,7 +174,13 @@ export default async function DashboardPage({
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-medium text-ink-900">{step.title}</p>
+                      {step.href ? (
+                        <Link href={step.href} className="font-medium text-ink-900 hover:text-brand-700 hover:underline">
+                          {step.title}
+                        </Link>
+                      ) : (
+                        <p className="font-medium text-ink-900">{step.title}</p>
+                      )}
                       <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${badge[step.state].className}`}>
                         {badge[step.state].label}
                       </span>
