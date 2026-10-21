@@ -113,8 +113,9 @@ model Category {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  sellers  SellerCategory[]
-  products Product[]
+  sellers         SellerCategory[]
+  products        Product[]
+  masterCampaigns MasterCampaign[]
 
   @@map("categories")
 }
@@ -243,39 +244,75 @@ model Product {
 // ---------------------------------------------------------------------------
 
 // The reusable template created by REACH AI
-model MasterCampaign {
-  id        String   @id @default(uuid())
-  category  String
-  title     String
-  objective String
-  baseCopy  String   @map("base_copy")
-  assets    Json     @default("[]") // AI generated images/video concepts
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+enum CampaignSource {
+  AI // written by the configured AI model
+  TEMPLATE // built-in fallback copy, used when no AI provider is configured
+}
 
+enum MasterCampaignStatus {
+  PUBLISHED // visible to sellers in the category
+  ARCHIVED // hidden from sellers; existing seller campaigns keep their copy
+}
+
+// The reusable campaign template for one category. Copy contains the
+// placeholders {{business_name}} and optionally {{location}}, which are filled
+// from each seller's verified profile when they personalise it.
+model MasterCampaign {
+  id           String               @id @default(uuid())
+  categoryId   String               @map("category_id")
+  title        String
+  objective    String
+  headline     String
+  body         String
+  callToAction String               @map("call_to_action")
+  assets       Json                 @default("[]") // future images/video concepts
+  source       CampaignSource
+  model        String? // AI model id when source = AI
+  status       MasterCampaignStatus @default(PUBLISHED)
+  aiJobId      String?              @unique @map("ai_job_id")
+  createdAt    DateTime             @default(now()) @map("created_at")
+  updatedAt    DateTime             @updatedAt @map("updated_at")
+
+  category        Category         @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  aiJob           AIJob?           @relation(fields: [aiJobId], references: [id], onDelete: SetNull)
   sellerCampaigns SellerCampaign[]
 
+  @@index([categoryId, status])
   @@map("master_campaigns")
 }
 
 // The personalised version created by the Seller
-model SellerCampaign {
-  id               String   @id @default(uuid())
-  masterCampaignId String   @map("master_campaign_id")
-  sellerId         String   @map("seller_id")
-  productId        String?  @map("product_id")
-  uniqueLink       String   @unique @map("unique_link")
-  customCopy       String   @map("custom_copy")
-  status           String   @default("draft") // draft | active | paused
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
+enum SellerCampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+}
 
-  masterCampaign    MasterCampaign     @relation(fields: [masterCampaignId], references: [id])
-  seller            Seller             @relation(fields: [sellerId], references: [id])
+// A seller's own copy of a master campaign. The personalised text is a
+// snapshot: later edits to the master never change it.
+model SellerCampaign {
+  id               String               @id @default(uuid())
+  masterCampaignId String               @map("master_campaign_id")
+  sellerId         String               @map("seller_id")
+  productId        String?              @map("product_id")
+  // Public share path segment, "<seller-slug>-<random code>", e.g.
+  // "thandis-hair-boutique-k7Qm2xPa". Random, so links can't be guessed.
+  uniqueLink       String               @unique @map("unique_link")
+  headline         String
+  body             String
+  callToAction     String               @map("call_to_action")
+  status           SellerCampaignStatus @default(DRAFT)
+  createdAt        DateTime             @default(now()) @map("created_at")
+  updatedAt        DateTime             @updatedAt @map("updated_at")
+
+  masterCampaign    MasterCampaign     @relation(fields: [masterCampaignId], references: [id], onDelete: Restrict)
+  seller            Seller             @relation(fields: [sellerId], references: [id], onDelete: Cascade)
   product           Product?           @relation(fields: [productId], references: [id], onDelete: SetNull)
   leads             Lead[]
   attributionEvents AttributionEvent[]
 
+  @@unique([sellerId, masterCampaignId])
+  @@index([sellerId, status])
   @@map("seller_campaigns")
 }
 
@@ -327,16 +364,36 @@ model AttributionEvent {
 // AI & AUDIT
 // ---------------------------------------------------------------------------
 
+enum AIJobType {
+  CAMPAIGN_GENERATION
+}
+
+enum AIJobStatus {
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+// One record per AI request, so cost and failures are visible.
 model AIJob {
-  id          String   @id @default(uuid())
-  taskType    String   @map("task_type") // CAMPAIGN_GENERATION | IMAGE_GENERATION
-  status      String   @default("pending") // pending | completed | failed
-  requestedBy String   @map("requested_by")
-  tokensUsed  Int?     @map("tokens_used")
-  createdAt   DateTime @default(now()) @map("created_at")
+  id           String      @id @default(uuid())
+  taskType     AIJobType   @map("task_type")
+  status       AIJobStatus @default(RUNNING)
+  requestedBy  String      @map("requested_by")
+  provider     String // "anthropic" or "template"
+  model        String?
+  attempts     Int         @default(0)
+  inputTokens  Int?        @map("input_tokens")
+  outputTokens Int?        @map("output_tokens")
+  // Failure reason for operators. Never contains prompts or personal data.
+  error        String?
+  createdAt    DateTime    @default(now()) @map("created_at")
+  finishedAt   DateTime?   @map("finished_at")
 
-  requester User @relation(fields: [requestedBy], references: [id])
+  requester      User            @relation(fields: [requestedBy], references: [id])
+  masterCampaign MasterCampaign?
 
+  @@index([createdAt])
   @@map("ai_jobs")
 }
 
