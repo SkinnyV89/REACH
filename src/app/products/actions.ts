@@ -27,13 +27,15 @@ export async function createProductAction(_prev: ProductFormState, form: FormDat
   const parsed = productSchema.safeParse(values);
   if (!parsed.success) return { errors: fieldErrors(parsed.error), values };
 
+  let productId: string;
   try {
-    await createProduct(session.user.id, seller.id, parsed.data);
+    productId = (await createProduct(session.user.id, seller.id, parsed.data)).id;
   } catch (error) {
     return failure(error, values);
   }
   revalidatePath("/products");
-  redirect("/products?saved=created");
+  // Straight to the item's page, where photos are added.
+  redirect(`/products/${productId}?created=1#photos`);
 }
 
 // The product id is bound on the server page (`.bind(null, id)`), but it

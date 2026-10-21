@@ -22,3 +22,6 @@ src/generated/
 *.log
 .DS_Store
 /skinbuy-reference/
+
+# photos saved by the local-disk storage backend (development only)
+/.uploads-dev/

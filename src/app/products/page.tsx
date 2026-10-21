@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Photo } from "@/components/photo";
 import { SellerHeader } from "@/components/seller-header";
 import { PRODUCT_STATUSES, formatPrice } from "@/lib/product-rules";
 import { AVAILABILITY, availabilityLabel } from "@/lib/storefront-rules";
@@ -106,18 +107,27 @@ export default async function ProductsPage({
                 <li key={p.id}>
                   <Link
                     href={`/products/${p.id}`}
-                    className="block h-full rounded-xl border border-ink-300/60 bg-white p-4 transition hover:border-brand-500 hover:shadow-sm"
+                    className="flex h-full gap-3 rounded-xl border border-ink-300/60 bg-white p-4 transition hover:border-brand-500 hover:shadow-sm"
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <p className="min-w-0 font-semibold text-ink-900">{p.name}</p>
-                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${status.className}`}>
-                        {status.label}
+                    {p.photo ? (
+                      <Photo photo={p.photo} alt="" sizes="64px" className="h-16 w-16 shrink-0 rounded-lg object-cover" />
+                    ) : (
+                      <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-ink-100 text-center text-[10px] leading-tight text-ink-500">
+                        No photo
                       </span>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="min-w-0 font-semibold text-ink-900">{p.name}</p>
+                        <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${status.className}`}>
+                          {status.label}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-sm text-ink-500">
+                        {p.kind === "SERVICE" ? "Service" : "Product"} · {p.category.name}
+                      </p>
+                      <p className="mt-2 font-medium text-ink-900">{formatPrice(p.priceType, p.price)}</p>
                     </div>
-                    <p className="mt-1 text-sm text-ink-500">
-                      {p.kind === "SERVICE" ? "Service" : "Product"} · {p.category.name}
-                    </p>
-                    <p className="mt-3 font-medium text-ink-900">{formatPrice(p.priceType, p.price)}</p>
                   </Link>
                 </li>
               );

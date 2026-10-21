@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { fieldErrors, type FieldErrors } from "@/lib/auth-rules";
+import { MediaError, removeSellerImage } from "@/lib/media";
+import { uploadErrorMessage } from "@/lib/media-rules";
 import { requireSeller } from "@/lib/session";
 import { formDataToObject } from "@/lib/seller-profile";
 import { StorefrontError, saveStorefront, setStorefrontPublished } from "@/lib/storefronts";
@@ -44,5 +46,21 @@ export async function setPublishedAction(published: boolean): Promise<Storefront
   }
   revalidatePath("/storefront");
   revalidatePath(`/s/${seller.slug}`);
+  return {};
+}
+
+// Removes the logo or cover photo (and its stored files).
+export async function removeSellerImageAction(target: "logo" | "cover"): Promise<StorefrontFormState> {
+  const { session, seller } = await requireSeller();
+  // Bound arguments still come from the browser.
+  if (target !== "logo" && target !== "cover") return { formError: "Something went wrong. Please try again." };
+  try {
+    await removeSellerImage(session.user.id, seller.id, target);
+  } catch (error) {
+    if (error instanceof MediaError) return { formError: uploadErrorMessage(error.code) };
+    return fail(error);
+  }
+  revalidatePath("/storefront");
+  revalidatePath(`/s/${seller.slug}`, "layout");
   return {};
 }

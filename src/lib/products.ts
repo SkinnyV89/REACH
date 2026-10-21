@@ -30,6 +30,11 @@ const listSelect = {
   status: true,
   updatedAt: true,
   category: { select: { name: true } },
+  photos: {
+    orderBy: { position: "asc" },
+    take: 1,
+    select: { media: { select: { url: true, thumbUrl: true, width: true, height: true, altText: true } } },
+  },
 } satisfies Prisma.ProductSelect;
 
 export async function listProducts(sellerId: string, { archived = false } = {}) {
@@ -39,7 +44,7 @@ export async function listProducts(sellerId: string, { archived = false } = {}) 
     select: listSelect,
   });
   // Decimal is not serialisable to client components; hand out strings.
-  return products.map((p) => ({ ...p, price: p.price?.toFixed(2) ?? null }));
+  return products.map(({ photos, ...p }) => ({ ...p, price: p.price?.toFixed(2) ?? null, photo: photos[0]?.media ?? null }));
 }
 
 export async function countProducts(sellerId: string) {

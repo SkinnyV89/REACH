@@ -10,6 +10,7 @@ export default function robots(): MetadataRoute.Robots {
       allow: ["/", "/s/"],
       disallow: [
         "/go/",
+        "/dev-uploads/",
         "/c/",
         "/api/",
         "/dashboard",

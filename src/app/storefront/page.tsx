@@ -4,21 +4,26 @@ import { CopyLink } from "@/app/campaigns/[id]/share-panel";
 import { SellerHeader } from "@/components/seller-header";
 import { appUrl } from "@/lib/app-url";
 import { CHANNELS, SHARE_CHANNELS } from "@/lib/lead-rules";
+import { getSellerImages } from "@/lib/media";
 import { requireSeller } from "@/lib/session";
 import { formatArea } from "@/lib/storefront-rules";
+import { isStorageConfigured } from "@/lib/storage";
 import { getStorefrontEditor, listPlaces } from "@/lib/storefronts";
-import { saveStorefrontAction, setPublishedAction } from "./actions";
+import { removeSellerImageAction, saveStorefrontAction, setPublishedAction } from "./actions";
 import { PublishToggle } from "./publish-panel";
+import { SellerImageField } from "./seller-images";
 import { StorefrontForm } from "./storefront-form";
 
 export const metadata: Metadata = { title: "Storefront · REACH" };
 
 export default async function StorefrontEditorPage() {
   const { session, seller: me } = await requireSeller();
-  const [{ seller, listingCount, check, published, suggestedLayout }, places] = await Promise.all([
+  const [{ seller, listingCount, check, published, suggestedLayout }, places, images] = await Promise.all([
     getStorefrontEditor(me.id),
     listPlaces(),
+    getSellerImages(me.id),
   ]);
+  const uploadsOff = !isStorageConfigured();
   const url = `${appUrl()}/s/${seller.slug}`;
   const area = formatArea({ areaDetail: seller.areaDetail, placeName: seller.place?.name, location: seller.location, province: seller.province });
   const whatsappShare = `https://wa.me/?text=${encodeURIComponent(`Have a look at ${seller.businessName} on REACH: ${url}?src=whatsapp`)}`;
@@ -113,6 +118,36 @@ export default async function StorefrontEditorPage() {
               </ul>
             </div>
           )}
+        </section>
+
+        <section aria-labelledby="images" className="rounded-2xl border border-ink-300/60 bg-white p-5 sm:p-6">
+          <h2 id="images" className="text-lg font-semibold text-ink-900">
+            Logo and cover photo
+          </h2>
+          <p className="mt-1 text-sm text-ink-500">
+            Optional, but they make your storefront easier to recognise. Location and camera details are removed from every
+            photo before it&apos;s saved.
+          </p>
+          <div className="mt-5 grid gap-6 sm:grid-cols-[1fr_2fr]">
+            <SellerImageField
+              target="logo"
+              title="Logo"
+              hint="Square works best. Shown as a circle."
+              photo={images.logo}
+              businessName={seller.businessName}
+              remove={removeSellerImageAction.bind(null, "logo")}
+              uploadsOff={uploadsOff}
+            />
+            <SellerImageField
+              target="cover"
+              title="Cover photo"
+              hint="A wide photo of your work or stall, shown across the top."
+              photo={images.cover}
+              businessName={seller.businessName}
+              remove={removeSellerImageAction.bind(null, "cover")}
+              uploadsOff={uploadsOff}
+            />
+          </div>
         </section>
 
         <section aria-labelledby="details" className="rounded-2xl border border-ink-300/60 bg-white p-5 sm:p-6">

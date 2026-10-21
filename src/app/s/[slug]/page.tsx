@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { LeadForm, ViewTracker } from "@/components/public-widgets";
-import { appUrl } from "@/lib/app-url";
+import { absoluteUrl, appUrl } from "@/lib/app-url";
 import { findCampaignForStorefront, getStorefront, toPublicSeller } from "@/lib/public-storefronts";
 import { getCurrentSeller } from "@/lib/session";
 import { formatArea, parseCampaignCode } from "@/lib/storefront-rules";
@@ -32,13 +32,21 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const seller = toPublicSeller(storefront.seller);
   const area = formatArea(seller);
   const description = seller.tagline ?? seller.description?.slice(0, 160) ?? `${seller.businessName} on REACH`;
+  const image = seller.cover ?? seller.logo;
   return {
     title: `${seller.businessName}${area ? ` · ${area}` : ""} | REACH`,
     description,
     // Indexable: buyers find sellers through search. The WhatsApp number is
     // not in the page; it's behind /go/wa.
     alternates: { canonical: `${appUrl()}/s/${seller.slug}` },
-    openGraph: { title: seller.businessName, description, type: "website", url: `${appUrl()}/s/${seller.slug}` },
+    openGraph: {
+      title: seller.businessName,
+      description,
+      type: "website",
+      url: `${appUrl()}/s/${seller.slug}`,
+      // Link previews show the cover photo, or the logo.
+      ...(image ? { images: [{ url: absoluteUrl(image.url), width: image.width, height: image.height }] } : {}),
+    },
   };
 }
 
