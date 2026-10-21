@@ -127,6 +127,7 @@ Sellers add a **logo** and a **cover photo** on `/storefront`, and **up to six p
 - **Consent:** cover and item photos need the seller to confirm they have permission from anyone shown; the time is stored on the photo (`media.people_consent_at`). Logos don't ask.
 - **Storage** (`src/lib/storage.ts`): Vercel Blob when `BLOB_READ_WRITE_TOKEN` is set, with paths like `media/<photo id>/lg.webp` (no seller id in public URLs). Local disk is for development only. Files are stored first and the database rows after; if saving the rows fails, the files are deleted. Replaced and removed photos are deleted from storage.
 - **Limits in the database:** `product_media` allows positions 0 to 5 only, each used once per item, so an item can never hold more than six photos even with uploads arriving at once. Position 0 is the main photo; sellers reorder with *Make main* and the arrows.
+- **Ready for video:** every `media` row has a `media_type`, `IMAGE` for everything today. `VIDEO` is reserved for short clips in Proof Posts (Step 2), where `url` will hold the video and `thumb_url` its poster image; the database keeps logos and covers as images. Video upload itself isn't built yet.
 - `products.media` (JSON) and `sellers.logo_url` are unused, superseded by these tables, and will be dropped in a later cleanup.
 
 ## Categories

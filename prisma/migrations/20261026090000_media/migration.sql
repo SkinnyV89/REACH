@@ -1,8 +1,13 @@
 -- Step 1b: photos (logos, cover photos, up to six photos per item).
 -- Additive only: two new tables and two nullable columns on sellers.
+-- media.media_type is IMAGE for everything today; VIDEO is reserved for
+-- short clips in Proof Posts (Step 2), so they need no schema rewrite.
 
 -- CreateEnum
 CREATE TYPE "MediaKind" AS ENUM ('LOGO', 'COVER', 'PRODUCT');
+
+-- CreateEnum
+CREATE TYPE "MediaType" AS ENUM ('IMAGE', 'VIDEO');
 
 -- AlterTable
 ALTER TABLE "sellers" ADD COLUMN     "cover_media_id" TEXT,
@@ -13,6 +18,7 @@ CREATE TABLE "media" (
     "id" TEXT NOT NULL,
     "seller_id" TEXT NOT NULL,
     "kind" "MediaKind" NOT NULL,
+    "media_type" "MediaType" NOT NULL DEFAULT 'IMAGE',
     "storage_keys" TEXT[],
     "url" TEXT NOT NULL,
     "thumb_url" TEXT NOT NULL,
@@ -69,3 +75,6 @@ ALTER TABLE "product_media" ADD CONSTRAINT "product_media_media_id_fkey" FOREIGN
 -- At most six photos per item, enforced by the database: positions 0-5
 -- only, and each position used once per item (unique index above).
 ALTER TABLE "product_media" ADD CONSTRAINT "product_media_position_check" CHECK ("position" >= 0 AND "position" < 6);
+
+-- Logos and cover photos are always images.
+ALTER TABLE "media" ADD CONSTRAINT "media_logo_cover_image_check" CHECK ("kind" = 'PRODUCT' OR "media_type" = 'IMAGE');

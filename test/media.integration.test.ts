@@ -141,7 +141,14 @@ run("media (integration)", () => {
     it("stores re-encoded files and records the photo, without metadata", async () => {
       const photo = await upload(A, { altText: "Waist-length knotless braids" });
       const row = await db.media.findUniqueOrThrow({ where: { id: photo.id } });
-      expect(row).toMatchObject({ sellerId: A.sellerId, kind: "PRODUCT", altText: "Waist-length knotless braids", width: 900, height: 600 });
+      expect(row).toMatchObject({
+        sellerId: A.sellerId,
+        kind: "PRODUCT",
+        mediaType: "IMAGE",
+        altText: "Waist-length knotless braids",
+        width: 900,
+        height: 600,
+      });
       expect(row.peopleConsentAt).not.toBeNull();
       expect(row.storageKeys).toEqual([`media/${photo.id}/lg.webp`, `media/${photo.id}/sm.webp`]);
       expect(row.url).toBe(`https://files.test/media/${photo.id}/lg.webp`);
@@ -270,6 +277,15 @@ run("media (integration)", () => {
       expect(await db.seller.findUniqueOrThrow({ where: { id: A.sellerId } })).toMatchObject({ logoMediaId: second.id });
       expect(await db.media.findUnique({ where: { id: first.id } })).toBeNull();
       expect(mem.deleted).toEqual([`media/${first.id}/lg.webp`]);
+    });
+
+    it("the database keeps logos and covers as images (video is reserved for later)", async () => {
+      const logo = await upload(A, { target: "logo", productId: null });
+      await expect(db.media.update({ where: { id: logo.id }, data: { mediaType: "VIDEO" } })).rejects.toThrow();
+      const photo = await upload(A);
+      // Item media may become video later (Proof Posts); the column allows it.
+      await db.media.update({ where: { id: photo.id }, data: { mediaType: "VIDEO" } });
+      expect((await db.media.findUniqueOrThrow({ where: { id: photo.id } })).mediaType).toBe("VIDEO");
     });
 
     it("needs permission for a cover photo, and removing it clears the storefront", async () => {

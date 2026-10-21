@@ -334,10 +334,19 @@ enum MediaKind {
   PRODUCT
 }
 
+// Only images can be uploaded today. VIDEO is reserved for short clips in
+// Proof Posts (Step 2): url will hold the video and thumbUrl its poster
+// image. Logos and covers are always images (checked by the database).
+enum MediaType {
+  IMAGE
+  VIDEO
+}
+
 model Media {
   id              String    @id @default(uuid())
   sellerId        String    @map("seller_id")
   kind            MediaKind
+  mediaType       MediaType @default(IMAGE) @map("media_type")
   // Storage keys of every stored size, so all of them can be deleted.
   storageKeys     String[]  @map("storage_keys")
   url             String // large size

@@ -148,6 +148,7 @@ export async function uploadImage(input: UploadInput, storageOverride?: Storage)
           id: mediaId,
           sellerId,
           kind: MEDIA_KIND_FOR_TARGET[target] as MediaKind,
+          mediaType: "IMAGE", // video uploads come with Proof Posts (Step 2)
           storageKeys: keys,
           url: urls.lg,
           thumbUrl: urls.sm ?? urls.lg,
