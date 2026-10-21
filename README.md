@@ -102,6 +102,20 @@ npm run lead:delete -- "082 123 4567" --confirm  # deletes permanently (audited 
 - **Highlights:** plain statements from the numbers (top channel, untagged enquiries, best campaign), only when there's data behind them. No predictions or advice.
 - Deleted leads are no longer counted.
 
+## Storefronts
+
+Every seller has a public storefront at **`/s/<slug>`**, with an item page per listing at **`/s/<slug>/<item-slug>`**.
+
+- **Publishing is opt-in.** A storefront is public only when the seller is active **and** has pressed *Publish* on `/storefront`, which needs a town or city, at least one listing and a WhatsApp number. Unpublishing hides it (and its items and WhatsApp link) immediately; the owner can always preview.
+- **Indexable, without exposing numbers.** Published storefronts and items can be indexed by search engines. The seller's WhatsApp number is never written into the page: *Chat on WhatsApp* goes through `/go/wa/<slug>` (`nofollow`, `noindex`, disallowed in `robots.txt`), which redirects to `wa.me` with a greeting naming the item.
+- **Places** come from GeoNames (CC BY 4.0, credited in the public footer): all 341 South African towns and cities with population ≥ 1000, seeded by the `storefronts` migration. Sellers choose a town and may add a neighbourhood ("Pimville, Soweto"); it's never a street address. Finer suburb data needs the full GeoNames file, which this build environment couldn't download (`download.geonames.org` is blocked by its network policy); adding it later is an additive migration.
+- **Layouts:** portfolio (services), product grid, or menu (food), suggested from the seller's categories and changeable.
+- **Availability:** In stock, Pre-order, Made to order, Out of stock, or By booking (services), always shown with "updated N days ago" and an optional lead time. Out-of-stock items are listed last; archived items are hidden.
+- **Readable item slugs** are generated from the name. Renaming an item gives it a new slug and keeps the old one as a permanent redirect, so shared links don't break.
+- **Enquiries** from storefronts and items use the same pipeline as campaign pages (consent, honeypot, hashed-IP rate limits, 24-hour duplicate guard) and are tagged `STOREFRONT` or `PRODUCT`, with the product linked. `/leads` shows where each came from.
+- **Campaign links** for new campaigns open the storefront with `?c=<code>`: a published campaign shows as a banner and its visits and enquiries are credited to it. Older campaigns keep their `/c/<link>` page, which still works.
+- **Tracking:** storefront and item views are counted anonymously via `/api/track`; WhatsApp taps are counted server-side by `/go/wa`, only for browsers that loaded the page (they carry the `reach_vid` cookie) and never for the owner.
+
 ## Categories
 
 Seller categories live in the `categories` table, seeded by the `seller_onboarding` migration. They are data, not code: rename, reorder (`sort_order`) or hide one (`is_active = false`) without a deploy. A category in use by sellers cannot be deleted; deactivate it instead.
@@ -127,4 +141,6 @@ Seller categories live in the `categories` table, seeded by the `seller_onboardi
 | Analytics: funnel, channel breakdown, campaign comparison | Implemented and tested |
 | Dark mode | Not implemented anywhere in the app yet |
 | New-lead notifications (email/SMS) | Planned: needs a provider |
-| Public seller page `/seller/<slug>` | Planned (address is reserved) |
+| Public storefronts `/s/<slug>` and item pages, publish/unpublish, availability, WhatsApp redirect | Implemented and tested (Step 1a) |
+| Storefront photos, logos and cover images | Planned (Step 1b): needs `BLOB_READ_WRITE_TOKEN` for Vercel Blob |
+| Suburb-level places | Planned: needs `download.geonames.org` allowed in the build environment |

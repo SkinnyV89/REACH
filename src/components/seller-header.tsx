@@ -6,8 +6,9 @@ import { getCurrentSeller } from "@/lib/session";
 
 const NAV = [
   { href: "/dashboard", label: "Dashboard", short: "Home", key: "dashboard" },
-  { href: "/products", label: "Products & services", short: "Products", key: "products" },
-  { href: "/campaigns", label: "Campaigns", key: "campaigns" },
+  { href: "/storefront", label: "Storefront", short: "Shop", key: "storefront" },
+  { href: "/products", label: "Products & services", short: "Items", key: "products" },
+  { href: "/campaigns", label: "Campaigns", short: "Promote", key: "campaigns" },
   { href: "/leads", label: "Leads", key: "leads" },
   { href: "/analytics", label: "Analytics", short: "Stats", key: "analytics" },
 ] as const;

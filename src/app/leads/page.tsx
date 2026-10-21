@@ -111,15 +111,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                 </div>
 
                 <p className="mt-3 text-xs text-ink-500">
-                  Source:{" "}
-                  {lead.sellerCampaign ? (
-                    <Link href={`/campaigns/${lead.sellerCampaign.id}`} className="font-medium text-ink-700 hover:underline">
-                      {lead.sellerCampaign.headline}
-                    </Link>
-                  ) : (
-                    "a campaign that has since been removed"
-                  )}{" "}
-                  · Channel: {CHANNELS[lead.channel]}
+                  <LeadSource lead={lead} /> · Channel: {CHANNELS[lead.channel]}
                 </p>
               </li>
             ))}
@@ -127,5 +119,47 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
         )}
       </main>
     </div>
+  );
+}
+
+// Where the enquiry was sent from. A storefront enquiry can also carry the
+// campaign whose link brought the visitor (?c=), so both are shown.
+function LeadSource({
+  lead,
+}: {
+  lead: {
+    source: "CAMPAIGN_PAGE" | "STOREFRONT" | "PRODUCT";
+    sellerCampaign: { id: string; headline: string } | null;
+    product: { id: string; name: string } | null;
+  };
+}) {
+  const campaign = lead.sellerCampaign && (
+    <Link href={`/campaigns/${lead.sellerCampaign.id}`} className="font-medium text-ink-700 hover:underline">
+      {lead.sellerCampaign.headline}
+    </Link>
+  );
+  if (lead.source === "CAMPAIGN_PAGE") {
+    return <>Source: {campaign ?? "a campaign that has since been removed"}</>;
+  }
+  const where =
+    lead.source === "PRODUCT" ? (
+      lead.product ? (
+        <>
+          item{" "}
+          <Link href={`/products/${lead.product.id}`} className="font-medium text-ink-700 hover:underline">
+            {lead.product.name}
+          </Link>
+        </>
+      ) : (
+        "an item that has since been removed"
+      )
+    ) : (
+      "your storefront"
+    );
+  return (
+    <>
+      Source: {where}
+      {campaign && <> (via campaign {campaign})</>}
+    </>
   );
 }

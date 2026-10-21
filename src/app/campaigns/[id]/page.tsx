@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AdPreview, SourceBadge } from "@/components/campaign-ui";
 import { SellerHeader } from "@/components/seller-header";
-import { shareUrl } from "@/lib/app-url";
+import { campaignShareUrl, withSrc } from "@/lib/app-url";
 import { getSellerCampaign } from "@/lib/campaigns";
 import { campaignStats } from "@/lib/leads";
 import { SHARE_CHANNELS, CHANNELS } from "@/lib/lead-rules";
@@ -31,7 +31,9 @@ export default async function SellerCampaignPage({
   const campaign = UUID.test(id) ? await getSellerCampaign(seller.id, id) : null;
   if (!campaign) notFound();
 
-  const link = shareUrl(campaign.uniqueLink);
+  const link = campaignShareUrl(campaign, seller.slug);
+  const toStorefront = campaign.destination === "STOREFRONT";
+  const storefrontLive = seller.storefrontPublishedAt !== null;
   const product = campaign.product;
   const published = campaign.status === "ACTIVE";
   const stats = await campaignStats(seller.id, campaign.id);
@@ -72,19 +74,32 @@ export default async function SellerCampaignPage({
             <div className="rounded-2xl border border-ink-300/60 bg-white p-5">
               <h2 className="font-semibold text-ink-900">{published ? "Share your campaign" : "Publish to start sharing"}</h2>
               <p className="mt-1 text-sm text-ink-500">
-                {published
-                  ? "Your campaign page is live. Use the link for each place you share it, so you can see where enquiries come from."
-                  : campaign.status === "PAUSED"
-                    ? "Paused: customers who open your link see that the campaign isn't available."
-                    : "Your link only works once you publish. Customers can then open your campaign, chat on WhatsApp or send an enquiry."}
+                {toStorefront
+                  ? published
+                    ? "People who open these links see this campaign at the top of your storefront, and their enquiries are credited to it."
+                    : "These links open your storefront. Publish to show this campaign at the top of it and credit enquiries to the campaign."
+                  : published
+                    ? "Your campaign page is live. Use the link for each place you share it, so you can see where enquiries come from."
+                    : campaign.status === "PAUSED"
+                      ? "Paused: customers who open your link see that the campaign isn't available."
+                      : "Your link only works once you publish. Customers can then open your campaign, chat on WhatsApp or send an enquiry."}
               </p>
               <div className="mt-4">
                 <PublishButton action={setCampaignStatusAction.bind(null, campaign.id, published ? "PAUSED" : "ACTIVE")} published={published} />
               </div>
+              {toStorefront && !storefrontLive && (
+                <p className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                  This campaign&apos;s link opens your storefront, which isn&apos;t published yet.{" "}
+                  <Link href="/storefront" className="font-semibold underline">
+                    Publish your storefront
+                  </Link>{" "}
+                  so the link works.
+                </p>
+              )}
               {published && (
                 <ul className="mt-4 divide-y divide-ink-100 border-t border-ink-100">
                   {SHARE_CHANNELS.map((c) => (
-                    <CopyLink key={c.src} label={`For ${CHANNELS[c.channel]}`} url={`${link}?src=${c.src}`} />
+                    <CopyLink key={c.src} label={`For ${CHANNELS[c.channel]}`} url={withSrc(link, c.src)} />
                   ))}
                   <CopyLink label="Plain link" url={link} />
                 </ul>
@@ -95,7 +110,12 @@ export default async function SellerCampaignPage({
                 rel="noopener noreferrer"
                 className="mt-3 inline-block text-sm font-semibold text-brand-700 hover:underline"
               >
-                {published ? "Open your campaign page" : "Preview your campaign page"} ↗
+                {toStorefront
+                  ? "Open your storefront with this campaign"
+                  : published
+                    ? "Open your campaign page"
+                    : "Preview your campaign page"}{" "}
+                ↗
               </a>
             </div>
 

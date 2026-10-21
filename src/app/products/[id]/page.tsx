@@ -52,7 +52,8 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
                 description: product.description ?? "",
                 priceType: product.priceType,
                 price: product.price?.replace(/\.00$/, "") ?? "",
-                status: product.status === "UNAVAILABLE" ? "UNAVAILABLE" : "AVAILABLE",
+                availability: product.availability,
+                leadTimeDays: product.leadTimeDays ? String(product.leadTimeDays) : "",
               }}
             />
           </div>

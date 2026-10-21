@@ -5,18 +5,23 @@ import { useActionState, useEffect } from "react";
 import { Field, FormError, SubmitButton } from "@/components/auth-form";
 import { TextArea } from "@/components/form-controls";
 import { useFormSubmit } from "@/components/use-form-submit";
-import type { LeadFormState } from "./actions";
+import type { LeadFormState } from "@/app/c/[link]/actions";
 
-function track(link: string, type: "VIEW" | "WHATSAPP_CLICK", src: string | null) {
-  const body = JSON.stringify({ link, type, src });
+type TrackPayload =
+  | { link: string; type: "VIEW" | "WHATSAPP_CLICK"; src: string | null }
+  | { storefront: string; item: string | null; type: "VIEW"; src: string | null; c: string | null };
+
+function send(payload: TrackPayload) {
+  const body = JSON.stringify(payload);
   // sendBeacon survives the page navigating away to WhatsApp.
   if (navigator.sendBeacon?.(`/api/track`, new Blob([body], { type: "application/json" }))) return;
   void fetch("/api/track", { method: "POST", body, headers: { "content-type": "application/json" }, keepalive: true });
 }
 
 // Records one anonymous view per page load (deduplicated on the server).
-export function ViewTracker({ link, src }: { link: string; src: string | null }) {
-  useEffect(() => track(link, "VIEW", src), [link, src]);
+export function ViewTracker({ payload }: { payload: TrackPayload }) {
+  const key = JSON.stringify(payload);
+  useEffect(() => send(JSON.parse(key)), [key]);
   return null;
 }
 
@@ -38,7 +43,7 @@ export function WhatsAppButton({
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      onClick={() => trackable && track(link, "WHATSAPP_CLICK", src)}
+      onClick={() => trackable && send({ link, type: "WHATSAPP_CLICK", src })}
       className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#1fa855] px-4 py-3.5 text-lg font-semibold text-white shadow-sm transition hover:bg-[#178a45] focus:outline-none focus:ring-4 focus:ring-green-200"
     >
       <svg aria-hidden viewBox="0 0 24 24" className="h-6 w-6 fill-current">
@@ -53,10 +58,12 @@ export function LeadForm({
   action: serverAction,
   businessName,
   disabled,
+  disabledText = "Enquiries open once this campaign is published.",
 }: {
   action: (state: LeadFormState, form: FormData) => Promise<LeadFormState>;
   businessName: string;
   disabled?: boolean;
+  disabledText?: string;
 }) {
   const [state, action, pending] = useActionState(serverAction, {});
   const onSubmit = useFormSubmit(action);
@@ -118,7 +125,7 @@ export function LeadForm({
       </div>
       {disabled ? (
         <p className="rounded-lg bg-ink-100 px-3 py-2 text-center text-sm text-ink-700">
-          Enquiries open once this campaign is published.
+          {disabledText}
         </p>
       ) : (
         <SubmitButton pending={pending}>Send enquiry</SubmitButton>

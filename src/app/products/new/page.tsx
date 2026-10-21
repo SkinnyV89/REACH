@@ -30,7 +30,8 @@ export default async function NewProductPage() {
                 description: "",
                 priceType: "FIXED",
                 price: "",
-                status: "AVAILABLE",
+                availability: "IN_STOCK",
+                leadTimeDays: "",
               }}
             />
           </div>

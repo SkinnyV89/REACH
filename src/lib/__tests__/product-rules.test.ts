@@ -43,7 +43,7 @@ describe("productSchema", () => {
     description: "",
     priceType: "FIXED",
     price: "R 1 250",
-    status: "AVAILABLE",
+    availability: "IN_STOCK",
   };
 
   it("normalises a valid product", () => {
@@ -62,6 +62,19 @@ describe("productSchema", () => {
   });
 
   it("will not accept ARCHIVED through the form", () => {
-    expect(productSchema.safeParse({ ...base, status: "ARCHIVED" }).success).toBe(false);
+    expect(productSchema.safeParse({ ...base, availability: "ARCHIVED" }).success).toBe(false);
+  });
+
+  it("only allows availability that fits the kind of listing", () => {
+    expect(productSchema.safeParse({ ...base, kind: "SERVICE", availability: "IN_STOCK" }).success).toBe(false);
+    expect(productSchema.safeParse({ ...base, kind: "SERVICE", availability: "BY_BOOKING" }).success).toBe(true);
+    expect(productSchema.safeParse({ ...base, availability: "BY_BOOKING" }).success).toBe(false);
+  });
+
+  it("takes an optional lead time for pre-orders, and ignores it otherwise", () => {
+    expect(productSchema.parse({ ...base, availability: "PRE_ORDER", leadTimeDays: "5" }).leadTimeDays).toBe(5);
+    expect(productSchema.parse({ ...base, availability: "PRE_ORDER", leadTimeDays: "" }).leadTimeDays).toBeNull();
+    expect(productSchema.parse({ ...base, availability: "IN_STOCK", leadTimeDays: "5" }).leadTimeDays).toBeNull();
+    expect(productSchema.safeParse({ ...base, availability: "MADE_TO_ORDER", leadTimeDays: "0" }).success).toBe(false);
   });
 });

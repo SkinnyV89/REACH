@@ -50,10 +50,10 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2>If you open a campaign page</h2>
+            <h2>If you open a storefront or campaign page</h2>
             <p className="mt-2">
-              We count page visits and taps on the WhatsApp button so sellers can see whether their campaigns are
-              working. To avoid counting the same visit twice, we set a cookie called <code>reach_vid</code> that
+              We count page visits and taps on the WhatsApp button so sellers can see whether their storefronts and
+              campaigns are working. To avoid counting the same visit twice, we set a cookie called <code>reach_vid</code> that
               holds a random code. It does not contain your name, number or any other personal details, and we do not
               use it to track you on other websites. It expires after 180 days. To limit spam, we also keep a coded
               (hashed) version of your internet address for a short time; we do not store the address itself.
@@ -64,8 +64,11 @@ export default function PrivacyPage() {
             <h2>If you sell on REACH</h2>
             <p className="mt-2">
               We store your account details (name, email, password in encrypted form) and the business profile,
-              products and campaigns you add, to run your account and show your campaigns to customers. Your WhatsApp
-              number and business details are shown on the campaign pages you publish.
+              products and campaigns you add, to run your account and show your storefront and campaigns to customers.
+              When you publish your storefront, your business name, area, description and listings are public and
+              can appear in search engines. Your WhatsApp number is not written into storefront pages; customers reach
+              it through REACH&apos;s &ldquo;Chat on WhatsApp&rdquo; link. Your area is shown as a neighbourhood and
+              town, never a street address.
             </p>
           </section>
 

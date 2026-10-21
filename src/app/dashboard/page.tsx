@@ -12,49 +12,35 @@ type StepState = "done" | "next" | "later";
 
 // The seller journey. States reflect what actually exists in the product
 // today; steps that are not built yet are labelled, not linked.
-function journey(productCount: number, campaignCount: number, leadCount: number): { title: string; detail: string; state: StepState; href?: string }[] {
+// The seller journey: get a storefront live, then bring people to it.
+// States come from real data; campaigns are an optional way to promote it.
+function journey(
+  productCount: number,
+  storefrontLive: boolean,
+  leadCount: number,
+): { title: string; detail: string; state: StepState; href?: string }[] {
   return [
-  { title: "Create your account", detail: "You're signed in.", state: "done" },
-  { title: "Set up your business profile", detail: "Customers will know who you are and how to reach you.", state: "done" },
-  productCount > 0
-    ? {
-        title: "Add a product or service",
-        detail: `${productCount} listed. Add more any time.`,
-        state: "done",
-        href: "/products",
-      }
-    : {
-        title: "Add a product or service",
-        detail: "What you want customers to discover.",
-        state: "next",
-        href: "/products/new",
-      },
-  campaignCount > 0
-    ? {
-        title: "Personalise a campaign",
-        detail: `${campaignCount} personalised. Browse the library for more.`,
-        state: "done",
-        href: "/campaigns",
-      }
-    : {
-        title: "Personalise a campaign",
-        detail: "A professional campaign made yours.",
-        state: productCount > 0 ? "next" : "later",
-        href: productCount > 0 ? "/campaigns" : undefined,
-      },
-  leadCount > 0
-    ? {
-        title: "Share it and capture leads",
-        detail: `${leadCount} ${leadCount === 1 ? "lead" : "leads"} so far.`,
-        state: "done",
-        href: "/leads",
-      }
-    : {
-        title: "Share it and capture leads",
-        detail: "Publish a campaign and share its link to reach people beyond your contacts.",
-        state: campaignCount > 0 ? "next" : "later",
-        href: campaignCount > 0 ? "/campaigns" : undefined,
-      },
+    { title: "Create your account", detail: "You're signed in.", state: "done" },
+    { title: "Set up your business profile", detail: "Customers will know who you are and how to reach you.", state: "done" },
+    productCount > 0
+      ? { title: "Add a product or service", detail: `${productCount} listed. Add more any time.`, state: "done", href: "/products" }
+      : { title: "Add a product or service", detail: "What customers can ask you about.", state: "next", href: "/products/new" },
+    storefrontLive
+      ? { title: "Publish your storefront", detail: "It's live. Share the link anywhere.", state: "done", href: "/storefront" }
+      : {
+          title: "Publish your storefront",
+          detail: "Your own page on REACH with everything you offer.",
+          state: productCount > 0 ? "next" : "later",
+          href: "/storefront",
+        },
+    leadCount > 0
+      ? { title: "Get your first enquiry", detail: `${leadCount} ${leadCount === 1 ? "lead" : "leads"} so far.`, state: "done", href: "/leads" }
+      : {
+          title: "Get your first enquiry",
+          detail: "Share your storefront on WhatsApp, Facebook, Instagram or TikTok. A campaign can help.",
+          state: storefrontLive ? "next" : "later",
+          href: storefrontLive ? "/storefront" : undefined,
+        },
   ];
 }
 
@@ -71,17 +57,16 @@ export default async function DashboardPage({
 }) {
   const { session, seller } = await requireSeller();
   const { welcome } = await searchParams;
-  const [categories, productCounts, campaignCount, leadCount] = await Promise.all([
+  const [categories, productCounts, leadCount] = await Promise.all([
     db.sellerCategory.findMany({
     where: { sellerId: seller.id },
     select: { category: { select: { name: true } } },
     orderBy: { category: { sortOrder: "asc" } },
     }),
     countProducts(seller.id),
-    db.sellerCampaign.count({ where: { sellerId: seller.id } }),
     db.lead.count({ where: { sellerId: seller.id } }),
   ]);
-  const steps = journey(productCounts.active, campaignCount, leadCount);
+  const steps = journey(productCounts.active, seller.storefrontPublishedAt !== null, leadCount);
   const firstName = session.user.name.split(" ")[0] || "there";
   const place = [seller.location, provinceLabel(seller.province)].filter(Boolean).join(", ");
   const fulfilment = FULFILMENT_OPTIONS.filter((f) => seller.fulfilment.includes(f.value)).map((f) => f.label);

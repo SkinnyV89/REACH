@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { SellerHeader } from "@/components/seller-header";
 import { PRODUCT_STATUSES, formatPrice } from "@/lib/product-rules";
+import { AVAILABILITY, availabilityLabel } from "@/lib/storefront-rules";
 import { countProducts, listProducts } from "@/lib/products";
 import { requireSeller } from "@/lib/session";
 
@@ -97,7 +98,10 @@ export default async function ProductsPage({
         ) : (
           <ul className="mt-6 grid gap-3 sm:grid-cols-2">
             {products.map((p) => {
-              const status = PRODUCT_STATUSES[p.status];
+              const status =
+                p.status === "ARCHIVED"
+                  ? PRODUCT_STATUSES.ARCHIVED
+                  : { label: availabilityLabel(p.availability, p.kind), className: AVAILABILITY[p.availability].className };
               return (
                 <li key={p.id}>
                   <Link
