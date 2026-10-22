@@ -50,3 +50,15 @@ export function authErrorMessage(error: { status?: number; code?: string; messag
       return "Something went wrong. Please try again.";
   }
 }
+
+// Where to go after signing in or up, from a ?next= parameter. Only paths on
+// this site are allowed ("/s/thandi"), never another site ("//evil.example",
+// "https://…", "/\\evil"), so the parameter can't be used to send people away.
+export function safeNextPath(raw: unknown): string | null {
+  if (typeof raw !== "string" || raw.length === 0 || raw.length > 300) return null;
+  if (!raw.startsWith("/") || raw.startsWith("//") || raw.startsWith("/\\")) return null;
+  if (/[\s\\]/.test(raw) || raw.includes("://")) return null;
+  // Auth pages themselves would loop.
+  if (/^\/(sign-in|sign-up)(\/|\?|$)/.test(raw)) return null;
+  return raw;
+}

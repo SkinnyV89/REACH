@@ -41,15 +41,28 @@ export default async function OnboardingPage({
       <header className="border-b border-ink-300/60 bg-white">
         <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-3">
           <span className="text-xl font-extrabold tracking-tight text-brand-700">REACH</span>
-          {isActive && (
+          {isActive ? (
             <Link href="/dashboard" className="text-sm font-semibold text-brand-700 hover:underline">
               Back to dashboard
+            </Link>
+          ) : (
+            // Selling is optional: buyers can leave setup and come back any time.
+            <Link href="/feed" className="text-sm font-semibold text-brand-700 hover:underline">
+              Not now, back to my feed
             </Link>
           )}
         </div>
       </header>
 
       <main className="mx-auto max-w-2xl px-4 py-8">
+        {!seller && (
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold text-ink-900">Start selling on REACH</h1>
+            <p className="mt-1 text-ink-700">
+              Set up your business in three short steps. You keep your account and your feed; selling is added to it.
+            </p>
+          </div>
+        )}
         <nav aria-label="Setup progress">
           <ol className="flex items-center gap-2">
             {STEPS.map((s, i) => {

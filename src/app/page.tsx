@@ -22,7 +22,7 @@ export default function Home() {
         </div>
         <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
           <Link
-            href="/sign-up"
+            href="/sign-up?intent=sell"
             className="bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 px-8 rounded-full transition-colors"
           >
             Start Your First Campaign

@@ -6,7 +6,7 @@ import { Field, FormError, SubmitButton } from "@/components/auth-form";
 import { authClient } from "@/lib/auth-client";
 import { authErrorMessage, fieldErrors, signInSchema, type FieldErrors } from "@/lib/auth-rules";
 
-export function SignInForm() {
+export function SignInForm({ next }: { next: string }) {
   const router = useRouter();
   const [errors, setErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string>();
@@ -28,7 +28,7 @@ export function SignInForm() {
       setPending(false);
       return;
     }
-    router.replace("/dashboard");
+    router.replace(next);
     router.refresh();
   }
 

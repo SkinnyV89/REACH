@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { PublicTopBar } from "@/components/public-top-bar";
 import { appUrl } from "@/lib/app-url";
 import { POSTS_PER_PAGE } from "@/lib/post-rules";
 import { getStorefront, listPublicPosts, toPublicSeller } from "@/lib/public-storefronts";
@@ -47,6 +48,7 @@ export default async function AllPostsPage({ params, searchParams }: Props) {
 
   return (
     <div className="min-h-screen bg-ink-100">
+      <PublicTopBar next={`/s/${seller.slug}/posts`} />
       {isOwner && <OwnerBanner live={live} manageHref="/posts" />}
       <main className="mx-auto max-w-2xl px-4 pb-10 pt-6">
         <Link href={`/s/${seller.slug}${query}`} className="text-sm font-semibold text-brand-700 hover:underline">

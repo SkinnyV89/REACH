@@ -10,7 +10,8 @@ import { LeadStatusSelect } from "./status-select";
 
 export const metadata: Metadata = { title: "Leads · REACH" };
 
-const dateFormat = new Intl.DateTimeFormat("en-ZA", {
+// en-GB, not en-ZA: Node's en-ZA data pads days ("03 Nov").
+const dateFormat = new Intl.DateTimeFormat("en-GB", {
   day: "numeric",
   month: "short",
   hour: "2-digit",

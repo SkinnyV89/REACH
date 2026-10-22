@@ -141,6 +141,18 @@ Sellers show their real work as posts: up to 6 photos, an optional caption and u
 - **Buyers:** post pages show the photos with their labels, the caption, the posted date, tagged items (archived ones hidden) linking to their item pages, *Ask about this on WhatsApp* (via `/go/wa`, greeting "I saw your post on REACH") and an enquiry form. Enquiries are tagged `POST` and linked to the post (`/leads` shows "your post"); deleting a post keeps the enquiry. Post views are counted anonymously like storefront views.
 - **Database guarantees:** at most 6 photos per post (positions 0–5), captions at most 1,000 characters, a capture time only on in-app photos, and tags only on the seller's own current items (checked in code).
 
+## Accounts, following, feed and notifications
+
+**One account per person.** Every account can buy; selling is added with a seller profile (the onboarding wizard). `users.role` is permissions only (`MEMBER` or `ADMIN`); seller pages check for an active seller profile with `requireSeller()`.
+
+- **Sign-up and landing:** `/sign-up` creates a buyer and opens `/feed`; `/sign-up?intent=sell` (the landing page's seller button) goes straight into onboarding. Signing in goes to `/home`, which sends sellers to `/dashboard` and everyone else to `/feed`. `?next=` brings people back to where they were (e.g. a storefront they wanted to follow); only paths on this site are accepted (`safeNextPath`).
+- **Buying side:** `/feed`, `/following`, `/notifications` and `/account`, with **Become a seller** (or **Your shop**) in the header. Sellers reach their feed from the **Feed** link in the seller header; public pages get a slim top bar with Feed and Notifications when signed in.
+- **Following:** a **Follow** button on every published storefront and post page (a plain form, works without JavaScript; signed-out visitors sign in and come back, then tap Follow, since a follow is never made just by opening a link). Up to 1,000 follows per account, 120 follow changes per hour, no following your own storefront (also refused by a database trigger). Who follows whom is private: sellers see their count on the dashboard; storefronts show **"N followers"** only from 10 followers.
+- **Feed** (`src/lib/feed.ts`): published posts from followed sellers with live storefronts, newest first, 20 per page with a `(published_at, code)` cursor, so paging never skips or repeats and URLs carry no internal ids. It's built on read with an index on `posts (status, published_at DESC, code DESC)`; if it gets slow at scale, `getFollowingFeed()` can switch to a precomputed feed table without changing any page.
+- **Recently active sellers:** live storefronts with a post in the last 30 days, most recent first, filterable by Hair & Beauty, Barbers and Food & Baking. No popularity metrics.
+- **Notifications** (`src/lib/notifications.ts`): publishing a post notifies the seller's followers with one `INSERT … SELECT` after the post is saved (a failure is logged and never blocks the post). While a follower hasn't read the last one, new posts from the same seller update it ("Thandi Braids shared 3 new posts"); each notification records the posts it counted, so a post is never counted twice. Opening `/notifications` marks them read. Nothing is sent while the storefront is unpublished, and a notification whose only post was hidden or deleted is left out. In-app only for now; email can be added as a delivery table.
+- **Deleting an account:** buyers delete their own account on `/account` (typing DELETE), which removes their sign-in, follows and notifications. Accounts with a seller profile are deleted on request by email.
+
 ## Categories
 
 Seller categories live in the `categories` table, seeded by the `seller_onboarding` migration. They are data, not code: rename, reorder (`sort_order`) or hide one (`is_active = false`) without a deploy. A category in use by sellers cannot be deleted; deactivate it instead.
@@ -170,4 +182,6 @@ Seller categories live in the `categories` table, seeded by the `seller_onboardi
 | Storefront photos, logos and cover images | Implemented and tested (Step 1b) |
 | Proof Posts: photos, captions, item tags, storefront grid, post pages, enquiries tagged POST | Implemented and tested (Step 2) |
 | In-app camera ("Photo taken in REACH") and short video clips | Planned: the data model is ready (`capture_source`, `media_type`) |
+| Buyer accounts, Become a seller, following, feed with recently active sellers, in-app notifications | Implemented and tested (Step 3) |
+| Notification emails / push | Planned: needs an email provider |
 | Suburb-level places | Planned: needs `download.geonames.org` allowed in the build environment |

@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { ActiveTabIntoView } from "@/components/active-tab-into-view";
+import { UnreadBadge } from "@/components/buyer-header";
 import { SignOutButton } from "@/components/sign-out-button";
 import { db } from "@/lib/db";
+import { unreadCount } from "@/lib/notifications";
 import { getCurrentSeller } from "@/lib/session";
 
 const NAV = [
@@ -19,7 +21,9 @@ export type SellerSection = (typeof NAV)[number]["key"];
 export async function SellerHeader({ email, current }: { email: string; current: SellerSection }) {
   // getCurrentSeller is cached per request, so this adds one count query.
   const seller = await getCurrentSeller();
-  const newLeads = seller ? await db.lead.count({ where: { sellerId: seller.id, status: "NEW" } }) : 0;
+  const [newLeads, unread] = seller
+    ? await Promise.all([db.lead.count({ where: { sellerId: seller.id, status: "NEW" } }), unreadCount(seller.userId)])
+    : [0, 0];
   return (
     <header className="border-b border-ink-300/60 bg-white">
       <div className="mx-auto flex max-w-4xl items-center justify-between gap-4 px-4 py-3">
@@ -28,6 +32,11 @@ export async function SellerHeader({ email, current }: { email: string; current:
         </Link>
         <div className="flex min-w-0 items-center gap-3">
           <span className="hidden truncate text-sm text-ink-500 md:inline">{email}</span>
+          {/* Sellers buy too: the way to their own feed and notifications. */}
+          <Link href="/feed" className="inline-flex items-center whitespace-nowrap text-sm font-semibold text-brand-700 hover:underline">
+            Feed
+            {unread > 0 && <UnreadBadge count={unread} />}
+          </Link>
           <SignOutButton />
         </div>
       </div>

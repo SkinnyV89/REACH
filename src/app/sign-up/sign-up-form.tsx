@@ -12,7 +12,9 @@ import {
   type FieldErrors,
 } from "@/lib/auth-rules";
 
-export function SignUpForm() {
+// After signing up: back to where they came from (e.g. a storefront they
+// wanted to follow), into seller setup if they came to sell, else the feed.
+export function SignUpForm({ next }: { next: string }) {
   const router = useRouter();
   const [errors, setErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string>();
@@ -34,7 +36,7 @@ export function SignUpForm() {
       setPending(false);
       return;
     }
-    router.replace("/onboarding");
+    router.replace(next);
     router.refresh();
   }
 

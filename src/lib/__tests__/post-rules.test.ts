@@ -93,6 +93,7 @@ describe("capture labels", () => {
     expect(captureLabel("GALLERY", new Date())).toBe("From gallery"); // a gallery photo never claims a time
     expect(captureLabel("IN_APP_CAMERA", new Date("2026-10-21T12:05:00Z"))).toBe("Photo taken in REACH · 21 Oct, 14:05");
     expect(captureLabel("IN_APP_CAMERA", null)).toBe("Photo taken in REACH");
+    expect(captureLabel("IN_APP_CAMERA", new Date("2026-11-03T12:05:00Z"))).toBe("Photo taken in REACH · 3 Nov, 14:05");
   });
 
   it("explains honestly what each label means", () => {
@@ -102,5 +103,6 @@ describe("capture labels", () => {
 
   it("formats the posted date in South African time", () => {
     expect(formatPostedDate(new Date("2026-10-21T23:30:00Z"))).toBe("Posted 22 Oct 2026");
+    expect(formatPostedDate(new Date("2026-11-03T10:00:00Z"))).toBe("Posted 3 Nov 2026"); // not "03"
   });
 });

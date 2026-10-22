@@ -2,13 +2,16 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CaptureExplainer, CaptureLabel } from "@/components/capture-label";
+import { FollowButton } from "@/components/follow-button";
 import { Photo } from "@/components/photo";
+import { PublicTopBar } from "@/components/public-top-bar";
+import { isFollowing } from "@/lib/follows";
 import { LeadForm, ViewTracker } from "@/components/public-widgets";
 import { absoluteUrl, appUrl } from "@/lib/app-url";
 import { formatPostedDate } from "@/lib/post-rules";
 import { formatPrice } from "@/lib/product-rules";
 import { findCampaignForStorefront, getStorefrontPost, toPublicSeller } from "@/lib/public-storefronts";
-import { getCurrentSeller } from "@/lib/session";
+import { getCurrentSeller, getSession } from "@/lib/session";
 import { formatArea, parseCampaignCode } from "@/lib/storefront-rules";
 import { submitStorefrontLeadAction } from "../../actions";
 import { AvailabilityBadge, PublicFooter, Unavailable, WhatsAppLink, carryQuery } from "../../storefront-parts";
@@ -55,13 +58,19 @@ export default async function PublicPostPage({ params, searchParams }: Props) {
 
   const seller = toPublicSeller(found.seller);
   const { post } = found;
-  const campaign = await findCampaignForStorefront(found.seller.id, campaignParam);
+  const session = await getSession();
+  const [campaign, following] = await Promise.all([
+    findCampaignForStorefront(found.seller.id, campaignParam),
+    session && !isOwner ? isFollowing(session.user.id, found.seller.id) : Promise.resolve(false),
+  ]);
+  const path = `/s/${seller.slug}/posts/${post.code}`;
   const campaignCode = campaign ? campaignParam : null;
   const area = formatArea(seller);
   const query = carryQuery(src, campaignCode);
 
   return (
     <div className="min-h-screen bg-ink-100">
+      <PublicTopBar next={path} />
       {live && !isOwner && (
         <ViewTracker payload={{ storefront: seller.slug, item: null, post: post.code, type: "VIEW", src, c: campaignCode }} />
       )}
@@ -96,10 +105,24 @@ export default async function PublicPostPage({ params, searchParams }: Props) {
           </ul>
           <div className="space-y-3 p-5">
             {post.photos.length > 1 && <p className="text-xs text-ink-500">{post.photos.length} photos · swipe or scroll sideways for more</p>}
-            <p className="text-sm text-ink-500">
-              <span className="font-semibold text-ink-900">{seller.businessName}</span>
-              {area ? ` · ${area}` : ""} · {formatPostedDate(post.postedAt)}
-            </p>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm text-ink-500">
+                <Link href={`/s/${seller.slug}${query}`} className="font-semibold text-ink-900 hover:underline">
+                  {seller.businessName}
+                </Link>
+                {area ? ` · ${area}` : ""} · {formatPostedDate(post.postedAt)}
+              </p>
+              {live && !isOwner && (
+                <FollowButton
+                  sellerSlug={seller.slug}
+                  businessName={seller.businessName}
+                  following={following}
+                  signedIn={Boolean(session)}
+                  returnPath={path}
+                  size="sm"
+                />
+              )}
+            </div>
             {post.caption && <p className="whitespace-pre-line text-ink-900">{post.caption}</p>}
             <CaptureExplainer sources={post.photos.map((p) => p.captureSource)} />
 

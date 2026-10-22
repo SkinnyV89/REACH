@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { Prisma } from "@/generated/prisma/client";
 import { generateShareCode } from "@/lib/campaign-rules";
 import { MediaError, deleteFiles, lockPost, resolveStorage } from "@/lib/media";
+import { notifyFollowersOfPost } from "@/lib/notifications";
 import { POST_CODE_LENGTH, type PostInput } from "@/lib/post-rules";
 import type { Storage } from "@/lib/storage";
 
@@ -84,6 +85,13 @@ export async function publishPost(userId: string, sellerId: string, postId: stri
     await tx.post.update({ where: { id: postId }, data: { status: "PUBLISHED", publishedAt: new Date() } });
     await tx.auditLog.create({ data: { actorId: userId, action: "post.published", entity: "post", entityId: postId } });
   });
+  // Tell followers, after the post is saved. A failure here never undoes or
+  // blocks the post; it's logged (without personal data) instead.
+  try {
+    await notifyFollowersOfPost(sellerId, postId);
+  } catch (error) {
+    console.error("[posts] follower notifications failed:", error instanceof Error ? error.name : typeof error);
+  }
 }
 
 export async function updatePost(userId: string, sellerId: string, postId: string, input: PostInput) {

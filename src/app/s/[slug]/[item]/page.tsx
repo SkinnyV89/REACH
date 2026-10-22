@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import { LeadForm, ViewTracker } from "@/components/public-widgets";
+import { PublicTopBar } from "@/components/public-top-bar";
 import { absoluteUrl, appUrl } from "@/lib/app-url";
 import { formatPrice } from "@/lib/product-rules";
 import { findCampaignForStorefront, getStorefrontItem, toPublicSeller } from "@/lib/public-storefronts";
@@ -74,6 +75,7 @@ export default async function ItemPage({ params, searchParams }: Props) {
 
   return (
     <div className="min-h-screen bg-ink-100">
+      <PublicTopBar next={`/s/${seller.slug}/${item.slug}`} />
       {trackable && <ViewTracker payload={{ storefront: seller.slug, item: item.slug, type: "VIEW", src, c: campaignCode }} />}
       {isOwner && <OwnerBanner live={live} manageHref={`/products`} />}
 
