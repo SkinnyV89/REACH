@@ -3,10 +3,8 @@ generator client {
   output   = "../src/generated/prisma"
 }
 
-// Prisma 7: the connection URL lives in prisma.config.ts (for Migrate) and is
-// passed to PrismaClient through the pg adapter at runtime (src/lib/db.ts).
 datasource db {
-  provider = "postgresql"
+  provider  = "postgresql"
 }
 
 // ---------------------------------------------------------------------------
