@@ -75,7 +75,7 @@ export async function listNotifications(userId: string, take = 50) {
         updatedAt: n.updatedAt,
         unread: n.readAt === null,
         seller: { slug: n.seller.slug, businessName: n.seller.businessName, logo: n.seller.logo },
-        href: postLive ? `/s/${n.seller.slug}/posts/${n.post!.code}` : `/s/${n.seller.slug}/posts`,
+        href: postLive ? `/s/${n.seller.slug}/posts/${n.post!.code}?src=reach` : `/s/${n.seller.slug}/posts?src=reach`,
         photo: postLive ? n.post!.media[0].media : null,
       },
     ];

@@ -241,7 +241,7 @@ run("buyers, following, feed and notifications (integration)", () => {
 
       const list = await notifications.listNotifications(buyer);
       expect(list).toHaveLength(1);
-      expect(list[0]).toMatchObject({ count: 2, unread: true, href: `/s/${A.slug}/posts/${(await db.post.findUniqueOrThrow({ where: { id: p2.id } })).code}` });
+      expect(list[0]).toMatchObject({ count: 2, unread: true, href: `/s/${A.slug}/posts/${(await db.post.findUniqueOrThrow({ where: { id: p2.id } })).code}?src=reach` });
 
       await notifications.markAllRead(buyer);
       expect(await notifications.unreadCount(buyer)).toBe(0);
@@ -269,7 +269,7 @@ run("buyers, following, feed and notifications (integration)", () => {
       await posts.deletePost(A.userId, A.sellerId, a.id);
       await posts.setPostHidden(B.userId, B.sellerId, b2.id, true);
       const list = await notifications.listNotifications(buyer);
-      expect(list.map((n) => [n.seller.slug, n.count, n.href])).toEqual([[B.slug, 2, `/s/${B.slug}/posts`]]);
+      expect(list.map((n) => [n.seller.slug, n.count, n.href])).toEqual([[B.slug, 2, `/s/${B.slug}/posts?src=reach`]]);
       expect(await db.notification.count({ where: { userId: buyer, sellerId: A.sellerId } })).toBe(1); // kept, post link cleared
       void b1;
     });

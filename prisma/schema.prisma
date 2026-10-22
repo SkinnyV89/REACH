@@ -4,7 +4,7 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
+  provider = "postgresql"
 }
 
 // ---------------------------------------------------------------------------
@@ -27,6 +27,9 @@ model User {
   name          String   @default("")
   image         String?
   emailVerified Boolean  @default(false) @map("email_verified")
+  // The town a buyer browses near (chosen, or snapped from "Use my location").
+  // Only the town is kept, never coordinates.
+  placeId       String?  @map("place_id")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
@@ -35,6 +38,7 @@ model User {
   aiJobs        AIJob[]
   follows       Follow[]
   notifications Notification[]
+  place         Place?         @relation(fields: [placeId], references: [id], onDelete: SetNull)
 
   sessions Session[]
   accounts Account[]
@@ -142,6 +146,7 @@ model Place {
   createdAt  DateTime @default(now()) @map("created_at")
 
   sellers Seller[]
+  users   User[]
 
   @@index([province, name])
   @@map("places")
@@ -230,6 +235,10 @@ model Seller {
   attributionEvents    AttributionEvent[]
 
   @@index([storefrontPublishedAt])
+  // Explore search: trigram indexes (pg_trgm) tolerate typos and work across
+  // languages, unlike English word-stemming.
+  @@index([businessName(ops: raw("gin_trgm_ops"))], type: Gin, map: "sellers_business_name_trgm_idx")
+  @@index([tagline(ops: raw("gin_trgm_ops"))], type: Gin, map: "sellers_tagline_trgm_idx")
   @@map("sellers")
 }
 
@@ -311,6 +320,7 @@ model Product {
   @@unique([sellerId, slug])
   @@index([sellerId, status])
   @@index([categoryId])
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "products_name_trgm_idx")
   @@map("products")
 }
 
@@ -622,6 +632,7 @@ enum LeadChannel {
   INSTAGRAM
   TIKTOK
   UNKNOWN
+  REACH // REACH's own discovery: Explore and the feed (?src=reach)
 }
 
 enum LeadSource {

@@ -16,6 +16,9 @@ export async function PublicTopBar({ next }: { next: string }) {
         </Link>
         {session ? (
           <nav aria-label="Account" className="flex items-center gap-4 text-sm font-medium">
+            <Link href="/explore" className="text-ink-700 hover:text-ink-900">
+              Explore
+            </Link>
             <Link href="/feed" className="text-ink-700 hover:text-ink-900">
               Feed
             </Link>
@@ -25,9 +28,14 @@ export async function PublicTopBar({ next }: { next: string }) {
             </Link>
           </nav>
         ) : (
-          <Link href={`/sign-in?next=${encodeURIComponent(next)}`} className="text-sm font-semibold text-brand-700 hover:underline">
-            Sign in
-          </Link>
+          <nav aria-label="Account" className="flex items-center gap-4 text-sm font-medium">
+            <Link href="/explore" className="text-ink-700 hover:text-ink-900">
+              Explore
+            </Link>
+            <Link href={`/sign-in?next=${encodeURIComponent(next)}`} className="font-semibold text-brand-700 hover:underline">
+              Sign in
+            </Link>
+          </nav>
         )}
       </div>
     </div>

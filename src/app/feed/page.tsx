@@ -62,6 +62,11 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
           ))}
         </ul>
       )}
+      <p className="text-center">
+        <Link href={filter ? `/explore?cat=${filter.key}` : "/explore"} className="text-sm font-semibold text-brand-700 hover:underline">
+          See more on Explore →
+        </Link>
+      </p>
     </section>
   );
 

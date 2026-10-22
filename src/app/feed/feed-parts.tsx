@@ -21,14 +21,15 @@ export function SellerAvatar({ name, logo, className = "h-10 w-10" }: { name: st
 
 // One post in the feed.
 export function FeedCard({ post }: { post: FeedPost }) {
-  const href = `/s/${post.seller.slug}/posts/${post.code}`;
+  // ?src=reach: visits and enquiries from the feed are credited to REACH.
+  const href = `/s/${post.seller.slug}/posts/${post.code}?src=reach`;
   const area = formatArea(post.seller.area as Area);
   return (
     <article className="overflow-hidden rounded-2xl border border-ink-300/60 bg-white shadow-sm">
       <header className="flex items-center gap-3 p-3">
         <SellerAvatar name={post.seller.businessName} logo={post.seller.logo} />
         <div className="min-w-0">
-          <Link href={`/s/${post.seller.slug}`} className="block truncate font-semibold text-ink-900 hover:underline">
+          <Link href={`/s/${post.seller.slug}?src=reach`} className="block truncate font-semibold text-ink-900 hover:underline">
             {post.seller.businessName}
           </Link>
           <p className="truncate text-xs text-ink-500">
@@ -81,11 +82,11 @@ export function DiscoveryCard({
   const area = formatArea(seller.area);
   return (
     <li className="flex gap-3 rounded-2xl border border-ink-300/60 bg-white p-3">
-      <Link href={`/s/${seller.slug}/posts/${seller.preview.code}`} className="shrink-0">
+      <Link href={`/s/${seller.slug}/posts/${seller.preview.code}?src=reach`} className="shrink-0">
         <Photo photo={seller.preview.photo} alt={`Latest post by ${seller.businessName}`} sizes="96px" className="h-24 w-24 rounded-xl bg-ink-100 object-cover" />
       </Link>
       <div className="min-w-0 flex-1">
-        <Link href={`/s/${seller.slug}`} className="block truncate font-semibold text-ink-900 hover:underline">
+        <Link href={`/s/${seller.slug}?src=reach`} className="block truncate font-semibold text-ink-900 hover:underline">
           {seller.businessName}
         </Link>
         <p className="truncate text-xs text-ink-500">{[area, seller.categories[0]].filter(Boolean).join(" · ")}</p>

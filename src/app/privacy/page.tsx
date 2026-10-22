@@ -83,6 +83,17 @@ export default function PrivacyPage() {
           </section>
 
           <section>
+            <h2>If you use Explore</h2>
+            <p className="mt-2">
+              Explore shows sellers near a town you choose. If you tap &ldquo;Use my location&rdquo;, your browser asks
+              you first; your position is rounded to about 1 km on your device, matched to the nearest town, and then
+              discarded. We keep only the town: on your account if you&apos;re signed in, otherwise in a cookie called{" "}
+              <code>reach_near</code> that holds just the town name (it expires after a year). Explore is sorted by
+              distance, recent activity and complete storefronts; rankings can&apos;t be bought.
+            </p>
+          </section>
+
+          <section>
             <h2>If you sell on REACH</h2>
             <p className="mt-2">
               We store your account details (name, email, password in encrypted form) and the business profile,

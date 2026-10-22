@@ -19,12 +19,17 @@ export const CHANNELS = {
   FACEBOOK: "Facebook",
   INSTAGRAM: "Instagram",
   TIKTOK: "TikTok",
+  REACH: "REACH (Explore & feed)",
   UNKNOWN: "Unknown",
 } as const;
 export type Channel = keyof typeof CHANNELS;
 
+// Links from REACH's own discovery pages (Explore, the feed) carry this, so
+// sellers can see what REACH brings them. It's not a share-link channel.
+export const REACH_SRC = "reach";
+
 // Share-link ?src= values sellers can use, one per channel.
-export const SHARE_CHANNELS: { src: string; channel: Exclude<Channel, "UNKNOWN"> }[] = [
+export const SHARE_CHANNELS: { src: string; channel: Exclude<Channel, "UNKNOWN" | "REACH"> }[] = [
   { src: "whatsapp", channel: "WHATSAPP" },
   { src: "facebook", channel: "FACEBOOK" },
   { src: "instagram", channel: "INSTAGRAM" },
@@ -37,7 +42,10 @@ export function parseChannel(raw: string | string[] | null | undefined): { chann
   const value = (Array.isArray(raw) ? raw[0] : raw)?.trim().toLowerCase().slice(0, 40) ?? "";
   const utmSource = value.replace(/[^a-z0-9_.-]/g, "") || null;
   const aliases: Record<string, Channel> = { wa: "WHATSAPP", fb: "FACEBOOK", ig: "INSTAGRAM", tt: "TIKTOK" };
-  const match = SHARE_CHANNELS.find((c) => c.src === utmSource)?.channel ?? (utmSource ? aliases[utmSource] : undefined);
+  const match =
+    utmSource === REACH_SRC
+      ? "REACH"
+      : (SHARE_CHANNELS.find((c) => c.src === utmSource)?.channel ?? (utmSource ? aliases[utmSource] : undefined));
   return { channel: match ?? "UNKNOWN", utmSource };
 }
 

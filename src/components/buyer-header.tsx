@@ -6,6 +6,7 @@ import { unreadCount } from "@/lib/notifications";
 
 const NAV = [
   { href: "/feed", label: "Feed", key: "feed" },
+  { href: "/explore", label: "Explore", key: "explore" },
   { href: "/following", label: "Following", key: "following" },
   { href: "/notifications", label: "Notifications", short: "Alerts", key: "notifications" },
   { href: "/account", label: "Account", key: "account" },

@@ -27,6 +27,9 @@ export default function Home() {
           >
             Start Your First Campaign
           </Link>
+          <Link href="/explore" className="font-semibold text-brand-700 hover:underline">
+            Explore sellers near you
+          </Link>
           <Link href="/sign-in" className="font-semibold text-brand-700 hover:underline">
             Already selling with REACH? Sign in
           </Link>
