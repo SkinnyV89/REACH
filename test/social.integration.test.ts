@@ -213,11 +213,11 @@ run("buyers, following, feed and notifications (integration)", () => {
       await post(B, "b", new Date(Date.now() - 2 * 86_400_000));
       await post(C, "c", new Date(Date.now() - 1 * 86_400_000));
       const mine = new Set(sellers().map((s) => s.slug));
-      const all = (await feed.recentlyActiveSellers({ limit: 50 })).filter((s) => mine.has(s.slug));
+      const all = (await feed.recentlyActiveSellers({ limit: 5000 })).filter((s) => mine.has(s.slug));
       expect(all.map((s) => s.slug)).toEqual([C.slug, B.slug]); // A's only post is 40 days old
-      const hair = (await feed.recentlyActiveSellers({ categorySlugs: ["hair-wigs-weaves"], limit: 50 })).filter((s) => mine.has(s.slug));
+      const hair = (await feed.recentlyActiveSellers({ categorySlugs: ["hair-wigs-weaves"], limit: 5000 })).filter((s) => mine.has(s.slug));
       expect(hair.map((s) => s.slug)).toEqual([B.slug]);
-      const notMine = (await feed.recentlyActiveSellers({ excludeSellerId: C.sellerId, limit: 50 })).filter((s) => mine.has(s.slug));
+      const notMine = (await feed.recentlyActiveSellers({ excludeSellerId: C.sellerId, limit: 5000 })).filter((s) => mine.has(s.slug));
       expect(notMine.map((s) => s.slug)).toEqual([B.slug]);
       expect(all[0]).toMatchObject({ recentPosts: 1, categories: ["Food, baking & catering"] });
     });
