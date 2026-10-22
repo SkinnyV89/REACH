@@ -40,6 +40,9 @@ export function SellerCard({
             {card.businessName}
           </Link>
           <p className="truncate text-xs text-ink-500">{[card.area, card.category].filter(Boolean).join(" · ")}</p>
+          {card.openLabel && (
+            <p className={`mt-0.5 text-xs font-semibold ${card.open ? "text-brand-700" : "text-ink-500"}`}>{card.openLabel}</p>
+          )}
           {card.tagline && <p className="mt-1 line-clamp-2 text-sm text-ink-700">{card.tagline}</p>}
           {card.reasons.length > 0 && (
             <ul aria-label="Why this seller is shown" className="mt-2 flex flex-wrap gap-1">

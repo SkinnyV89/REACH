@@ -16,6 +16,7 @@ export async function ExploreView({
   filter,
   query,
   tab,
+  openNow = false,
   page,
   heading,
   path,
@@ -24,15 +25,16 @@ export async function ExploreView({
   filter: CategoryFilter | null;
   query: string | null;
   tab: "sellers" | "work";
+  openNow?: boolean;
   page: number;
   heading: string;
   path: string; // this page's own URL, to come back to after signing in
 }) {
   const [session, me, towns, options] = await Promise.all([getSession(), getCurrentSeller(), listPlaces(), exploreCategoryOptions()]);
-  const base = { near: place?.slug ?? null, cat: filter?.key ?? null, q: query, tab };
+  const base = { near: place?.slug ?? null, cat: filter?.key ?? null, q: query, tab, open: openNow };
   const categories = filter?.categories ?? null;
 
-  const sellers = tab === "sellers" ? await exploreSellers({ place, categories, query, page }) : null;
+  const sellers = tab === "sellers" ? await exploreSellers({ place, categories, query, openNow, page }) : null;
   const work = tab === "work" ? await exploreLatestWork({ place, categories, page }) : null;
   const followed =
     session && sellers ? await followedSellerIds(session.user.id, sellers.cards.map((c) => c.sellerId)) : new Set<string>();
@@ -56,6 +58,7 @@ export async function ExploreView({
           <form action="/explore" method="get" role="search" className="flex gap-2">
             {place && <input type="hidden" name="near" value={place.slug} />}
             {filter && <input type="hidden" name="cat" value={filter.key} />}
+            {openNow && <input type="hidden" name="open" value="1" />}
             {tab === "work" && <input type="hidden" name="tab" value="work" />}
             <label htmlFor="q" className="sr-only">
               Search sellers and items
@@ -122,6 +125,19 @@ export async function ExploreView({
           ))}
         </nav>
 
+        {tab === "sellers" && (
+          <Link
+            href={exploreHref({ ...base, open: !openNow })}
+            aria-pressed={openNow}
+            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium ${
+              openNow ? "bg-brand-600 text-white" : "border border-ink-300 bg-white text-ink-700 hover:bg-ink-100"
+            }`}
+          >
+            <span aria-hidden className={`h-2 w-2 rounded-full ${openNow ? "bg-white" : "bg-brand-600"}`} />
+            Open now
+          </Link>
+        )}
+
         {sellers && (
           <section aria-label="Sellers" className="space-y-3">
             {query && (
@@ -132,7 +148,11 @@ export async function ExploreView({
             )}
             {sellers.total === 0 ? (
               <p className="rounded-xl bg-white p-5 text-center text-ink-700">
-                {query ? "Try a different word, or remove the category filter." : `No sellers${filter ? ` in ${filter.label}` : ""} on REACH yet.`}
+                {openNow
+                  ? "No sellers are open right now (only sellers who've set their hours show here)."
+                  : query
+                    ? "Try a different word, or remove the category filter."
+                    : `No sellers${filter ? ` in ${filter.label}` : ""} on REACH yet.`}
               </p>
             ) : (
               <>

@@ -132,7 +132,7 @@ run("explore (integration)", () => {
     expect(bySlug.pretoria.reasons).toEqual(["Pretoria · about 65 km away", "Delivers to your area"]);
     expect(bySlug.capetown.reasons[0]).toMatch(/^Cape Town · about \d+ km away$/);
     // Cards carry no internal fields beyond the server-only seller id.
-    expect(Object.keys(bySlug.newsoweto).sort()).toEqual(["area", "businessName", "category", "group", "image", "logo", "matches", "reasons", "sellerId", "slug", "tagline"]);
+    expect(Object.keys(bySlug.newsoweto).sort()).toEqual(["area", "businessName", "category", "group", "image", "logo", "matches", "open", "openLabel", "reasons", "sellerId", "slug", "tagline"]);
   });
 
   it("without a town, there's one list and no distances", async () => {

@@ -1,7 +1,7 @@
 import "server-only";
 import { db } from "@/lib/db";
 import type { Prisma, ProductStatus } from "@/generated/prisma/client";
-import { MAX_PRODUCTS_PER_SELLER, type ProductInput } from "@/lib/product-rules";
+import { MAX_PRODUCTS_PER_SELLER, checkBulkRow, type BulkRow, type ProductInput } from "@/lib/product-rules";
 import { itemSlug, itemSlugCandidates, statusFromAvailability } from "@/lib/storefront-rules";
 
 // Product and service operations. Every function takes the seller id from
@@ -194,5 +194,79 @@ export async function setArchived(userId: string, sellerId: string, productId: s
         entityId: productId,
       },
     });
+  });
+}
+
+// Quick price editing: updates price, price type and availability for many of
+// the seller's items at once. Every row is checked first; if any is invalid,
+// nothing is saved and each problem is reported against its item. Only items
+// that actually changed are written.
+export async function bulkUpdateItems(userId: string, sellerId: string, rows: BulkRow[]) {
+  const items = await db.product.findMany({
+    where: { sellerId, id: { in: rows.map((r) => r.id) }, status: { not: "ARCHIVED" } },
+    select: { id: true, kind: true, priceType: true, price: true, availability: true },
+  });
+  const byId = new Map(items.map((i) => [i.id, i]));
+  const errors: Record<string, string> = {};
+  const changes: { id: string; priceType: BulkRow["priceType"]; price: string | null; availability: BulkRow["availability"]; availabilityChanged: boolean }[] = [];
+  for (const row of rows) {
+    const item = byId.get(row.id);
+    if (!item) {
+      errors[row.id] = "This item could not be found.";
+      continue;
+    }
+    const checked = checkBulkRow(row, item.kind);
+    if (!checked.ok) {
+      errors[row.id] = checked.error;
+      continue;
+    }
+    const samePrice = (item.price?.toFixed(2) ?? null) === checked.price;
+    if (samePrice && item.priceType === checked.priceType && item.availability === checked.availability) continue;
+    changes.push({ id: row.id, ...checked, availabilityChanged: item.availability !== checked.availability });
+  }
+  if (Object.keys(errors).length) return { saved: 0, errors };
+  if (changes.length === 0) return { saved: 0, errors };
+
+  await db.$transaction(async (tx) => {
+    for (const c of changes) {
+      // Seller in the filter: a foreign id matches nothing.
+      await tx.product.updateMany({
+        where: { id: c.id, sellerId, status: { not: "ARCHIVED" } },
+        data: {
+          priceType: c.priceType,
+          price: c.price,
+          availability: c.availability,
+          status: statusFromAvailability(c.availability),
+          ...(c.availabilityChanged ? { availabilityUpdatedAt: new Date() } : {}),
+        },
+      });
+    }
+    await tx.auditLog.create({ data: { actorId: userId, action: "product.bulk_updated", entity: "seller", entityId: sellerId } });
+  });
+  return { saved: changes.length, errors };
+}
+
+// Several new items at once (from a flyer import). All are saved, or none:
+// the seller row is locked so two imports can't both pass the item limit.
+export async function createProducts(userId: string, sellerId: string, inputs: ProductInput[]) {
+  const categoryIds = [...new Set(inputs.map((i) => i.categoryId))];
+  for (const categoryId of categoryIds) await assertSellerCategory(sellerId, categoryId);
+  return db.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT "id" FROM "sellers" WHERE "id" = ${sellerId} FOR UPDATE`;
+    const existing = await tx.product.count({ where: { sellerId } });
+    if (existing + inputs.length > MAX_PRODUCTS_PER_SELLER) {
+      throw new ProductError(
+        "LIMIT_REACHED",
+        `You can have up to ${MAX_PRODUCTS_PER_SELLER} products and services, and you have ${existing}. Untick some items, or archive old ones first.`,
+      );
+    }
+    const created: string[] = [];
+    for (const input of inputs) {
+      const slug = await availableItemSlug(tx, sellerId, input.name);
+      const product = await tx.product.create({ data: { sellerId, slug, ...toData(input) }, select: { id: true } });
+      created.push(product.id);
+    }
+    await tx.auditLog.create({ data: { actorId: userId, action: "product.imported", entity: "seller", entityId: sellerId } });
+    return created.length;
   });
 }

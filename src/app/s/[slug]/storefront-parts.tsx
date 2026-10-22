@@ -1,6 +1,8 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { Photo, type PhotoData } from "@/components/photo";
+import { weekSummary, type OpenStatus, type Slot } from "@/lib/hours-rules";
+import { directionsUrl } from "@/lib/location-rules";
 import { formatPrice } from "@/lib/product-rules";
 import {
   AVAILABILITY,
@@ -266,6 +268,98 @@ export function PostGrid({
         </li>
       ))}
     </ul>
+  );
+}
+
+// "Open now · closes 20:00" (green) or "Closed · opens 08:00 tomorrow".
+export function OpenStatusLine({ status, note }: { status: OpenStatus | null; note: string | null }) {
+  if (!status && !note) return null;
+  return (
+    <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+      {status && (
+        <span className={`inline-flex items-center gap-1.5 font-semibold ${status.open ? "text-brand-700" : "text-ink-700"}`}>
+          <span aria-hidden className={`h-2 w-2 rounded-full ${status.open ? "bg-brand-600" : "bg-ink-300"}`} />
+          {status.label}
+        </span>
+      )}
+      {note && <span className="text-ink-500">{note}</span>}
+    </p>
+  );
+}
+
+export function HoursTable({ slots }: { slots: Slot[] }) {
+  if (slots.length === 0) return null;
+  return (
+    <details className="rounded-xl bg-white p-4 text-sm">
+      <summary className="cursor-pointer font-medium text-ink-900">Opening hours</summary>
+      <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
+        {weekSummary(slots).map((r) => (
+          <div key={r.days} className="contents">
+            <dt className="text-ink-500">{r.days}</dt>
+            <dd className="text-ink-900">{r.hours}</dd>
+          </div>
+        ))}
+      </dl>
+    </details>
+  );
+}
+
+// Collection: the address and directions for signed-in buyers; everyone
+// else is told collection is possible and asked to sign in for the address.
+export function CollectionBox({
+  point,
+  area,
+  signInHref,
+}: {
+  point: { address: string; pin: { latitude: number; longitude: number } } | null;
+  area: string | null;
+  signInHref: string;
+}) {
+  return (
+    <div className="rounded-xl bg-white p-4 text-sm">
+      <p className="font-semibold text-ink-900">Collect from the seller</p>
+      {point ? (
+        <>
+          <p className="mt-1 whitespace-pre-line text-ink-700">{point.address}</p>
+          <a
+            href={directionsUrl(point.pin)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-ink-300 px-3 py-2 font-semibold text-ink-900 hover:bg-ink-100"
+          >
+            <svg aria-hidden viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current" strokeWidth={2}>
+              <path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11Z" />
+              <circle cx="12" cy="10" r="2.5" />
+            </svg>
+            Get directions
+          </a>
+        </>
+      ) : (
+        <p className="mt-1 text-ink-700">
+          {area ? `In ${area}. ` : ""}
+          <Link href={signInHref} className="font-semibold text-brand-700 hover:underline">
+            Sign in to see the address
+          </Link>
+          .
+        </p>
+      )}
+    </div>
+  );
+}
+
+// A phone call goes through /go/call, so the number isn't in the page.
+export function CallLink({ sellerSlug }: { sellerSlug: string }) {
+  return (
+    <a
+      href={`/go/call/${sellerSlug}`}
+      rel="nofollow"
+      className="flex w-full items-center justify-center gap-2 rounded-xl border border-ink-300 bg-white px-4 py-3 font-semibold text-ink-900 hover:bg-ink-100"
+    >
+      <svg aria-hidden viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-current" strokeWidth={2}>
+        <path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2" />
+      </svg>
+      Call
+    </a>
   );
 }
 

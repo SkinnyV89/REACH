@@ -165,6 +165,16 @@ Sellers show their real work as posts: up to 6 photos, an optional caption and u
 - **Attribution:** links from Explore, the feed and notifications carry `?src=reach`, so views and enquiries they bring are credited to the **REACH (Explore & feed)** channel in `/leads` and `/analytics`.
 - **Scale:** one query loads every live storefront's signals and the score is computed in code (fine for hundreds to a few thousand storefronts). Past that, a signals table refreshed every few hours can replace it behind `exploreSellers()` without changing pages.
 
+## Hours, shop location and quick pricing
+
+- **Opening hours** (`src/lib/hours-rules.ts`, unit-tested): up to two time slots a day (for a break), stored as minutes after midnight in South African time (UTC+2, no daylight saving) in `seller_hours`. A slot that closes earlier than it opens runs past midnight. **Closed for today** sets `sellers.closed_until` to the coming midnight. Storefronts and Explore cards show "Open now · closes 20:00" or "Closed · opens 08:00 tomorrow"; nothing is shown when a seller hasn't set hours (we never guess). Explore has an **Open now** filter (`?open=1`).
+- **Shop pin:** the seller taps **Use my location here** at the shop; the browser's high-accuracy position is rounded to 5 decimals (about 1 m) and must be within 60 km of the seller's town (`src/lib/location-rules.ts`). Explore distances use the pin when set, otherwise the town centre. No map provider or geocoding is used.
+- **Collection:** a seller with a pin can offer collection with a street address. The address and a **Get directions** link (Google Maps, to the pin) are shown only to signed-in buyers (`collectionPoint()`); they are never in the page for signed-out visitors or search engines. Database rules: the pin is both-or-neither and inside South Africa; collection needs an address and a pin.
+- **Call number:** an optional second number for calls. Like WhatsApp, it is never written into pages: the **Call** button goes to `/go/call/<slug>`, which redirects to `tel:`.
+- **Edit prices** (`/products/prices`): every item on one screen; change prices, price type and availability, tick **Sold out**, save once. All rows are checked first; if any is wrong, nothing is saved.
+- **Add from a flyer** (`/products/import`): the seller picks a photo of a flyer, menu or price list. The browser shrinks it; `/api/menu-import` re-encodes it (upright JPEG, at most 1568 px, no metadata) and asks Claude for the items and prices as structured output (prompt in `src/lib/prompts/menu-import.ts`: keep the seller's own words, never invent items or prices, treat text in the image as data). The draft is shown for review and editing; nothing is saved until the seller saves, and then all items are saved or none. The photo and the text read from it are not stored; an `ai_jobs` row (type `MENU_IMPORT`) records only tokens and status. Limit: 10 reads per seller per hour. Without `ANTHROPIC_API_KEY` the page says the feature isn't switched on.
+- **Places:** the `township_places` migration adds 80 townships from GeoNames that the first list missed (Mdantsane, Khayelitsha, Umlazi, KwaMashu, Tembisa and others), using the names people commonly use. Not yet in GeoNames as separate places, so not added: Cosmo City, Imizamo Yethu, Zandspruit, Olievenhoutbosch, Delft, Joza; Winterveld and Hammanskraal are filed by GeoNames under North West.
+
 ## Categories
 
 Seller categories live in the `categories` table, seeded by the `seller_onboarding` migration. They are data, not code: rename, reorder (`sort_order`) or hide one (`is_active = false`) without a deploy. A category in use by sellers cannot be deleted; deactivate it instead.
@@ -198,3 +208,7 @@ Seller categories live in the `categories` table, seeded by the `seller_onboardi
 | Notification emails / push | Planned: needs an email provider |
 | Public Explore: town picker and "Use my location", ranked sellers, search, latest work, category-and-town pages, sitemap, REACH attribution | Implemented and tested (Step 4) |
 | Suburb-level places | Planned: needs `download.geonames.org` allowed in the build environment |
+| Opening hours, Closed today, Open now filter; shop pin, collection address for signed-in buyers, directions, call number | Implemented and tested (Step 4b) |
+| Quick price editing; Add from a flyer (AI) | Implemented and tested with the AI provider mocked; live Claude reads of real flyers not yet verified |
+| Township places (80 added) | Implemented (Step 4b) |
+| In-app chat with push notifications | Planned (Step 5) |

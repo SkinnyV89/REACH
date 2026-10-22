@@ -5,11 +5,18 @@ import { exploreHref, normaliseQuery, parsePage } from "@/lib/explore-rules";
 import { ExploreView } from "./explore-view";
 import { resolveNear } from "./near";
 
-type Props = { searchParams: Promise<{ near?: string; cat?: string; q?: string; tab?: string; page?: string }> };
+type Props = { searchParams: Promise<{ near?: string; cat?: string; q?: string; tab?: string; open?: string; page?: string }> };
 
 async function resolve(sp: Awaited<Props["searchParams"]>) {
   const [{ place }, filter] = await Promise.all([resolveNear(sp.near), resolveCategoryFilter(sp.cat)]);
-  return { place, filter, query: normaliseQuery(sp.q), tab: sp.tab === "work" ? ("work" as const) : ("sellers" as const), page: parsePage(sp.page) };
+  return {
+    place,
+    filter,
+    query: normaliseQuery(sp.q),
+    tab: sp.tab === "work" ? ("work" as const) : ("sellers" as const),
+    openNow: sp.open === "1",
+    page: parsePage(sp.page),
+  };
 }
 
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
@@ -30,7 +37,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 
 export default async function ExplorePage({ searchParams }: Props) {
   const sp = await searchParams;
-  const { place, filter, query, tab, page } = await resolve(sp);
+  const { place, filter, query, tab, openNow, page } = await resolve(sp);
   const heading = filter ? `${filter.label}${place ? ` near ${place.name}` : ""}` : place ? `Sellers near ${place.name}` : "Explore sellers";
   return (
     <ExploreView
@@ -38,9 +45,10 @@ export default async function ExplorePage({ searchParams }: Props) {
       filter={filter}
       query={query}
       tab={tab}
+      openNow={openNow}
       page={page}
       heading={heading}
-      path={exploreHref({ near: sp.near ? place?.slug : null, cat: filter?.key, q: query, tab, page })}
+      path={exploreHref({ near: sp.near ? place?.slug : null, cat: filter?.key, q: query, tab, open: openNow, page })}
     />
   );
 }

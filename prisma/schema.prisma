@@ -216,6 +216,21 @@ model Seller {
   logoMediaId           String?          @unique @map("logo_media_id")
   coverMediaId          String?          @unique @map("cover_media_id")
 
+  // Collection point. A precise pin set by the seller standing at their shop
+  // ("Use my location here"); used for distances and directions. The street
+  // address is shown only when the seller turns on collection, and only to
+  // signed-in buyers.
+  pinLatitude       Float?    @map("pin_latitude")
+  pinLongitude      Float?    @map("pin_longitude")
+  offersCollection  Boolean   @default(false) @map("offers_collection")
+  collectionAddress String?   @map("collection_address")
+  // A second number for phone calls (E.164); WhatsApp stays whatsappNumber.
+  callNumber        String?   @map("call_number")
+  // "Closed today": closed until this moment (end of the day it was set).
+  closedUntil       DateTime? @map("closed_until")
+  // Short note shown with the hours, e.g. "Taking orders for tomorrow".
+  hoursNote         String?   @map("hours_note")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -225,6 +240,7 @@ model Seller {
   cover                Media?                @relation("SellerCover", fields: [coverMediaId], references: [id], onDelete: SetNull)
   media                Media[]               @relation("SellerMedia")
   posts                Post[]
+  hours                SellerHours[]
   followers            Follow[]
   notificationsAbout   Notification[]
   productSlugRedirects ProductSlugRedirect[]
@@ -240,6 +256,22 @@ model Seller {
   @@index([businessName(ops: raw("gin_trgm_ops"))], type: Gin, map: "sellers_business_name_trgm_idx")
   @@index([tagline(ops: raw("gin_trgm_ops"))], type: Gin, map: "sellers_tagline_trgm_idx")
   @@map("sellers")
+}
+
+// Weekly opening hours. Several slots per day are allowed; a slot that
+// closes before it opens runs past midnight. Times are minutes after
+// midnight, South African time.
+model SellerHours {
+  id        String @id @default(uuid())
+  sellerId  String @map("seller_id")
+  dayOfWeek Int    @map("day_of_week") // 0 = Sunday … 6 = Saturday
+  opensAt   Int    @map("opens_at")
+  closesAt  Int    @map("closes_at")
+
+  seller Seller @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  @@index([sellerId, dayOfWeek])
+  @@map("seller_hours")
 }
 
 model SellerCategory {
@@ -725,6 +757,7 @@ model PublicRateLimit {
 
 enum AIJobType {
   CAMPAIGN_GENERATION
+  MENU_IMPORT // reading items and prices from a seller's flyer photo
 }
 
 enum AIJobStatus {

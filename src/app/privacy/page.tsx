@@ -101,7 +101,22 @@ export default function PrivacyPage() {
               When you publish your storefront, your business name, area, description and listings are public and
               can appear in search engines. Your WhatsApp number is not written into storefront pages; customers reach
               it through REACH&apos;s &ldquo;Chat on WhatsApp&rdquo; link. Your area is shown as a neighbourhood and
-              town, never a street address.
+              town. A street address is shown only if you choose to offer collection (below).
+            </p>
+            <p className="mt-2">
+              <strong>Shop location and collection:</strong> if you tap &ldquo;Use my location here&rdquo;, REACH saves
+              that spot (to about 1 metre) as your shop location. It is used to work out distances in Explore and, if
+              you offer collection, for the &ldquo;Get directions&rdquo; button, which opens Google Maps. If you turn on
+              collection, your collection address and the directions button are shown only to buyers who are signed in
+              to REACH; they are never written into the page for people who aren&apos;t signed in, or for search
+              engines. Removing your location turns collection off. A separate number for calls, if you add one, is
+              reached through REACH&apos;s &ldquo;Call&rdquo; button and is not written into your pages. Your opening
+              hours and hours note are public.
+            </p>
+            <p className="mt-2">
+              <strong>Adding items from a flyer:</strong> if you use &ldquo;Add from a flyer&rdquo;, the photo is sent
+              to our AI provider, Anthropic, to read the items and prices, and is then discarded: REACH doesn&apos;t
+              keep the photo or the text read from it. Only the items you review and save are added to your listings.
             </p>
             <p className="mt-2">
               <strong>Photos:</strong> logos, cover photos and item photos you upload are public on your storefront.

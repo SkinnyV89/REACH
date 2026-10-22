@@ -1,5 +1,7 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { endOfSaDay, type HoursInput } from "@/lib/hours-rules";
+import { pinProblem, roundPin, type CollectionInput } from "@/lib/location-rules";
 import { layoutForCategories, publishCheck, type StorefrontInput } from "@/lib/storefront-rules";
 
 // Seller-side storefront management. Every function takes the seller id from
@@ -7,7 +9,7 @@ import { layoutForCategories, publishCheck, type StorefrontInput } from "@/lib/s
 
 export class StorefrontError extends Error {
   constructor(
-    public readonly code: "INVALID_PLACE" | "NOT_READY",
+    public readonly code: "INVALID_PLACE" | "NOT_READY" | "INVALID_PIN" | "NEEDS_PIN",
     message: string,
   ) {
     super(message);
@@ -100,5 +102,86 @@ export async function setStorefrontPublished(userId: string, sellerId: string, p
         entityId: sellerId,
       },
     });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Opening hours, collection point and call number
+// ---------------------------------------------------------------------------
+
+export async function getStorefrontSettings(sellerId: string) {
+  const seller = await db.seller.findUniqueOrThrow({
+    where: { id: sellerId },
+    select: {
+      pinLatitude: true,
+      pinLongitude: true,
+      offersCollection: true,
+      collectionAddress: true,
+      callNumber: true,
+      closedUntil: true,
+      hoursNote: true,
+      place: { select: { name: true, latitude: true, longitude: true } },
+      hours: { orderBy: [{ dayOfWeek: "asc" }, { opensAt: "asc" }], select: { dayOfWeek: true, opensAt: true, closesAt: true } },
+    },
+  });
+  return seller;
+}
+
+// Replaces the weekly hours (and the short note) in one go.
+export async function saveHours(userId: string, sellerId: string, input: HoursInput) {
+  await db.$transaction(async (tx) => {
+    await tx.sellerHours.deleteMany({ where: { sellerId } });
+    if (input.slots.length) await tx.sellerHours.createMany({ data: input.slots.map((s) => ({ sellerId, ...s })) });
+    await tx.seller.update({ where: { id: sellerId }, data: { hoursNote: input.note } });
+    await tx.auditLog.create({ data: { actorId: userId, action: "storefront.hours_updated", entity: "seller", entityId: sellerId } });
+  });
+}
+
+// "Closed today": closed until midnight South African time; or open again.
+export async function setClosedToday(userId: string, sellerId: string, closed: boolean, now = new Date()) {
+  await db.$transaction(async (tx) => {
+    await tx.seller.update({ where: { id: sellerId }, data: { closedUntil: closed ? endOfSaDay(now) : null } });
+    await tx.auditLog.create({
+      data: { actorId: userId, action: closed ? "storefront.closed_today" : "storefront.reopened", entity: "seller", entityId: sellerId },
+    });
+  });
+}
+
+// Sets the shop pin from the seller's phone, while they're at the shop. It
+// must be in South Africa and near their chosen town.
+export async function setPin(userId: string, sellerId: string, latitude: number, longitude: number) {
+  const seller = await db.seller.findUniqueOrThrow({
+    where: { id: sellerId },
+    select: { place: { select: { name: true, latitude: true, longitude: true } } },
+  });
+  const pin = { latitude: roundPin(latitude), longitude: roundPin(longitude) };
+  const problem = pinProblem(pin, seller.place);
+  if (problem) throw new StorefrontError("INVALID_PIN", problem);
+  await db.$transaction(async (tx) => {
+    await tx.seller.update({ where: { id: sellerId }, data: { pinLatitude: pin.latitude, pinLongitude: pin.longitude } });
+    await tx.auditLog.create({ data: { actorId: userId, action: "storefront.pin_set", entity: "seller", entityId: sellerId } });
+  });
+  return pin;
+}
+
+// Removing the pin also stops collection (buyers would have nowhere to go).
+export async function clearPin(userId: string, sellerId: string) {
+  await db.$transaction(async (tx) => {
+    await tx.seller.update({ where: { id: sellerId }, data: { pinLatitude: null, pinLongitude: null, offersCollection: false } });
+    await tx.auditLog.create({ data: { actorId: userId, action: "storefront.pin_cleared", entity: "seller", entityId: sellerId } });
+  });
+}
+
+export async function saveCollection(userId: string, sellerId: string, input: CollectionInput) {
+  const { pinLatitude } = await db.seller.findUniqueOrThrow({ where: { id: sellerId }, select: { pinLatitude: true } });
+  if (input.offersCollection && pinLatitude === null) {
+    throw new StorefrontError("NEEDS_PIN", "Set your shop location first, so buyers can get directions.");
+  }
+  await db.$transaction(async (tx) => {
+    await tx.seller.update({
+      where: { id: sellerId },
+      data: { offersCollection: input.offersCollection, collectionAddress: input.collectionAddress, callNumber: input.callNumber },
+    });
+    await tx.auditLog.create({ data: { actorId: userId, action: "storefront.collection_updated", entity: "seller", entityId: sellerId } });
   });
 }

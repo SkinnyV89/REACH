@@ -14,21 +14,23 @@ const SAVED_MESSAGES: Record<string, string> = {
   updated: "Changes saved.",
   archived: "Archived. It's hidden from your list and won't be used in new campaigns.",
   restored: "Restored and marked as available.",
+  imported: "Items added from your flyer. Add photos to the ones that need them.",
 };
 
 export default async function ProductsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ saved?: string; view?: string }>;
+  searchParams: Promise<{ saved?: string; view?: string; count?: string }>;
 }) {
   const { session, seller } = await requireSeller();
-  const { saved, view } = await searchParams;
+  const { saved, view, count: rawCount } = await searchParams;
+  const count = /^\d{1,3}$/.test(rawCount ?? "") ? Number(rawCount) : 0;
   const showArchived = view === "archived";
   const [products, counts] = await Promise.all([
     listProducts(seller.id, { archived: showArchived }),
     countProducts(seller.id),
   ]);
-  const message = saved ? SAVED_MESSAGES[saved] : undefined;
+  const message = saved === "imported" && count ? `${count === 1 ? "1 item" : `${count} items`} added from your flyer. Add photos to the ones that need them.` : saved ? SAVED_MESSAGES[saved] : undefined;
 
   return (
     <div className="min-h-screen bg-ink-100">
@@ -46,12 +48,22 @@ export default async function ProductsPage({
             <p className="mt-1 text-ink-700">What you want new customers to discover.</p>
           </div>
           {!showArchived && (counts.active > 0 || counts.archived > 0) && (
-            <Link
-              href="/products/new"
-              className="rounded-lg bg-brand-600 px-4 py-2.5 font-semibold text-white transition hover:bg-brand-700"
-            >
-              Add new
-            </Link>
+            <div className="flex flex-wrap gap-2">
+              {counts.active > 0 && (
+                <Link href="/products/prices" className="rounded-lg border border-ink-300 bg-white px-4 py-2.5 font-semibold text-ink-900 transition hover:bg-ink-100">
+                  Edit prices
+                </Link>
+              )}
+              <Link href="/products/import" className="rounded-lg border border-ink-300 bg-white px-4 py-2.5 font-semibold text-ink-900 transition hover:bg-ink-100">
+                Add from a flyer
+              </Link>
+              <Link
+                href="/products/new"
+                className="rounded-lg bg-brand-600 px-4 py-2.5 font-semibold text-white transition hover:bg-brand-700"
+              >
+                Add new
+              </Link>
+            </div>
           )}
         </div>
 
@@ -93,6 +105,12 @@ export default async function ProductsPage({
                 >
                   Add a product or service
                 </Link>
+                <p className="mt-3 text-sm text-ink-700">
+                  Have a menu or price flyer?{" "}
+                  <Link href="/products/import" className="font-semibold text-brand-700 hover:underline">
+                    Add everything from a photo of it
+                  </Link>
+                </p>
               </>
             )}
           </div>

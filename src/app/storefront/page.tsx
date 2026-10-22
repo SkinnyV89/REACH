@@ -8,8 +8,21 @@ import { getSellerImages } from "@/lib/media";
 import { requireSeller } from "@/lib/session";
 import { formatArea } from "@/lib/storefront-rules";
 import { isStorageConfigured } from "@/lib/storage";
-import { getStorefrontEditor, listPlaces } from "@/lib/storefronts";
-import { removeSellerImageAction, saveStorefrontAction, setPublishedAction } from "./actions";
+import { getStorefrontEditor, getStorefrontSettings, listPlaces } from "@/lib/storefronts";
+import { openStatus } from "@/lib/hours-rules";
+import { formatWhatsappNumber } from "@/lib/seller-profile";
+import {
+  clearPinAction,
+  removeSellerImageAction,
+  saveCollectionAction,
+  saveHoursAction,
+  saveStorefrontAction,
+  setClosedTodayAction,
+  setPinAction,
+  setPublishedAction,
+} from "./actions";
+import { ClosedTodayButton, HoursEditor } from "./hours-editor";
+import { CollectionForm, PinSetter } from "./location-panel";
 import { PublishToggle } from "./publish-panel";
 import { SellerImageField } from "./seller-images";
 import { StorefrontForm } from "./storefront-form";
@@ -18,11 +31,15 @@ export const metadata: Metadata = { title: "Storefront · REACH" };
 
 export default async function StorefrontEditorPage() {
   const { session, seller: me } = await requireSeller();
-  const [{ seller, listingCount, check, published, suggestedLayout }, places, images] = await Promise.all([
+  const [{ seller, listingCount, check, published, suggestedLayout }, places, images, settings] = await Promise.all([
     getStorefrontEditor(me.id),
     listPlaces(),
     getSellerImages(me.id),
+    getStorefrontSettings(me.id),
   ]);
+  const status = openStatus(settings.hours, new Date(), settings.closedUntil);
+  const closedToday = Boolean(settings.closedUntil && settings.closedUntil > new Date());
+  const pin = settings.pinLatitude !== null && settings.pinLongitude !== null ? { latitude: settings.pinLatitude, longitude: settings.pinLongitude } : null;
   const uploadsOff = !isStorageConfigured();
   const url = `${appUrl()}/s/${seller.slug}`;
   const area = formatArea({ areaDetail: seller.areaDetail, placeName: seller.place?.name, location: seller.location, province: seller.province });
@@ -147,6 +164,46 @@ export default async function StorefrontEditorPage() {
               remove={removeSellerImageAction.bind(null, "cover")}
               uploadsOff={uploadsOff}
             />
+          </div>
+        </section>
+
+        <section aria-labelledby="hours-heading" className="rounded-2xl border border-ink-300/60 bg-white p-5 sm:p-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 id="hours-heading" className="text-lg font-semibold text-ink-900">
+                Opening hours
+              </h2>
+              <p className="mt-1 text-sm text-ink-500">
+                {status ? `Customers see: ${status.label}` : "Not set. Customers won't see whether you're open."}
+              </p>
+            </div>
+            {settings.hours.length > 0 && <ClosedTodayButton closedToday={closedToday} action={setClosedTodayAction.bind(null, !closedToday)} />}
+          </div>
+          <div className="mt-4">
+            <HoursEditor action={saveHoursAction} slots={settings.hours} note={settings.hoursNote ?? ""} />
+          </div>
+        </section>
+
+        <section aria-labelledby="location-heading" className="rounded-2xl border border-ink-300/60 bg-white p-5 sm:p-6">
+          <h2 id="location-heading" className="text-lg font-semibold text-ink-900">
+            Shop location and collection
+          </h2>
+          <p className="mt-1 text-sm text-ink-500">
+            Your exact location makes distances on Explore accurate and lets buyers who collect get directions.
+          </p>
+          <div className="mt-4 space-y-6">
+            <PinSetter pin={pin} townName={settings.place?.name ?? null} setPin={setPinAction} clearPin={clearPinAction} />
+            <div className="border-t border-ink-100 pt-5">
+              <CollectionForm
+                action={saveCollectionAction}
+                hasPin={pin !== null}
+                initial={{
+                  offersCollection: settings.offersCollection,
+                  collectionAddress: settings.collectionAddress ?? "",
+                  callNumber: settings.callNumber ? formatWhatsappNumber(settings.callNumber) : "",
+                }}
+              />
+            </div>
           </div>
         </section>
 

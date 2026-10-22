@@ -20,6 +20,7 @@ import {
   type LatLng,
 } from "@/lib/explore-rules";
 import { DISCOVERY_FILTERS } from "@/lib/feed-rules";
+import { openStatus } from "@/lib/hours-rules";
 import { formatArea } from "@/lib/storefront-rules";
 
 // Explore: public discovery of sellers and their latest work, ranked by
@@ -181,7 +182,16 @@ const candidateSelect = {
     select: { code: true, publishedAt: true, media: { orderBy: { position: "asc" }, take: 1, select: { media: { select: photoSelect } } } },
   },
   _count: { select: { posts: { where: visiblePost } } },
+  pinLatitude: true,
+  pinLongitude: true,
+  closedUntil: true,
+  hours: { select: { dayOfWeek: true, opensAt: true, closesAt: true } },
 } satisfies Prisma.SellerSelect;
+
+// Where a seller is: their shop pin when set (precise), else their town centre.
+function sellerPoint(c: { place: { latitude: number; longitude: number } | null; pinLatitude: number | null; pinLongitude: number | null }): LatLng {
+  return c.pinLatitude !== null && c.pinLongitude !== null ? { latitude: c.pinLatitude, longitude: c.pinLongitude } : c.place!;
+}
 
 type Candidate = Prisma.SellerGetPayload<{ select: typeof candidateSelect }>;
 
@@ -197,11 +207,13 @@ export type ExploreSellerCard = {
   reasons: string[];
   group: "near" | "further" | "all";
   matches: { name: string; slug: string; priceType: string; price: string | null }[];
+  openLabel: string | null; // "Open now · closes 20:00", or null if no hours are set
+  open: boolean;
 };
 
 function scoreCandidate(c: Candidate, place: ExplorePlace | null, now: Date) {
   const sellerPlace = c.place!;
-  const km = place ? distanceKm(place, sellerPlace) : null;
+  const km = place ? distanceKm(place, sellerPoint(c)) : null;
   const sameTown = place ? place.id === sellerPlace.id : false;
   const deliversToBuyer = Boolean(km !== null && c.fulfilment.includes("DELIVERY") && c.serviceRadiusKm && km <= c.serviceRadiusKm);
   const lastPostAt = c.posts[0]?.publishedAt ?? null;
@@ -234,12 +246,14 @@ export async function exploreSellers({
   place,
   categories,
   query,
+  openNow = false,
   page = 1,
   now = new Date(),
 }: {
   place: ExplorePlace | null;
   categories: string[] | null;
   query: string | null;
+  openNow?: boolean;
   page?: number;
   now?: Date;
 }) {
@@ -257,7 +271,11 @@ export async function exploreSellers({
   });
 
   const day = rotationDay(now);
-  const scored = candidates.map((c) => {
+  const statusOf = new Map(candidates.map((c) => [c.id, openStatus(c.hours, now, c.closedUntil)]));
+  // "Open now" keeps only sellers whose hours say they're open right now
+  // (sellers without hours can't be known to be open, so they're left out).
+  const eligible = openNow ? candidates.filter((c) => statusOf.get(c.id)?.open) : candidates;
+  const scored = eligible.map((c) => {
     const s = scoreCandidate(c, place, now);
     // In a search, text relevance (in 0.1 steps) comes first, then the score.
     const searchBand = hits ? Math.round((relevance.get(c.id) ?? 0) * 10) : 0;
@@ -298,6 +316,8 @@ export async function exploreSellers({
     }),
     group,
     matches: matches.get(c.id) ?? [],
+    openLabel: statusOf.get(c.id)?.label ?? null,
+    open: statusOf.get(c.id)?.open ?? false,
   }));
   return { cards, total: ordered.length, page: current, pages, nearCount: ordered.filter((o) => o.group === "near").length };
 }
@@ -332,14 +352,14 @@ export async function exploreLatestWork({
       code: true,
       caption: true,
       publishedAt: true,
-      seller: { select: { slug: true, businessName: true, place: { select: placeSelect } } },
+      seller: { select: { slug: true, businessName: true, place: { select: placeSelect }, pinLatitude: true, pinLongitude: true } },
       media: { orderBy: { position: "asc" }, take: 1, select: { media: { select: { ...photoSelect, captureSource: true, capturedAt: true } } } },
       _count: { select: { media: true } },
     },
   });
   const day = rotationDay(now);
   const scored = posts.map((p) => {
-    const km = place ? distanceKm(place, p.seller.place!) : null;
+    const km = place ? distanceKm(place, sellerPoint(p.seller)) : null;
     const sameTown = place ? place.id === p.seller.place!.id : false;
     // Newer work first (halving weekly); nearer work ahead when a town is set.
     const recency = 0.5 ** ((now.getTime() - p.publishedAt!.getTime()) / 86_400_000 / 7);

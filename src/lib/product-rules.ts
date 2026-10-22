@@ -114,3 +114,31 @@ export const productSchema = z
   });
 
 export type ProductInput = z.output<typeof productSchema>;
+
+// ---------------------------------------------------------------------------
+// Quick price editing: several items in one save.
+// ---------------------------------------------------------------------------
+
+export const bulkRowSchema = z.object({
+  id: z.string().uuid(),
+  priceType: z.enum(["FIXED", "FROM", "ON_REQUEST"]),
+  price: z.string().trim().max(20),
+  availability: z.enum(["IN_STOCK", "PRE_ORDER", "MADE_TO_ORDER", "OUT_OF_STOCK", "BY_BOOKING"]),
+});
+
+export type BulkRow = z.infer<typeof bulkRowSchema>;
+
+// Checks one row against its item's kind. Returns the values to save, or an
+// error message for that row.
+export function checkBulkRow(
+  row: BulkRow,
+  kind: "PRODUCT" | "SERVICE",
+): { ok: true; priceType: BulkRow["priceType"]; price: string | null; availability: AvailabilityValue } | { ok: false; error: string } {
+  if (!(AVAILABILITY_FOR_KIND[kind] as AvailabilityValue[]).includes(row.availability)) {
+    return { ok: false, error: kind === "SERVICE" ? "Services are by booking or not taking bookings." : "Choose an option that fits a product." };
+  }
+  if (row.priceType === "ON_REQUEST") return { ok: true, priceType: row.priceType, price: null, availability: row.availability };
+  const price = parsePrice(row.price);
+  if (!price) return { ok: false, error: row.price ? `Enter an amount between R1 and ${formatRand(MAX_PRICE)}.` : "Enter a price." };
+  return { ok: true, priceType: row.priceType, price, availability: row.availability };
+}

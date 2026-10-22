@@ -198,7 +198,7 @@ export function normaliseQuery(raw: unknown): string | null {
 // URLs
 // ---------------------------------------------------------------------------
 
-export type ExploreParams = { near?: string | null; cat?: string | null; q?: string | null; tab?: "sellers" | "work"; page?: number };
+export type ExploreParams = { near?: string | null; cat?: string | null; q?: string | null; tab?: "sellers" | "work"; open?: boolean; page?: number };
 
 // Links within Explore. A town + category with nothing else uses the
 // search-engine landing page (/explore/<category>/<town>); everything else is
@@ -206,12 +206,13 @@ export type ExploreParams = { near?: string | null; cat?: string | null; q?: str
 export function exploreHref(p: ExploreParams): string {
   const tab = p.tab ?? "sellers";
   const page = p.page && p.page > 1 ? p.page : 1;
-  if (p.near && p.cat && !p.q && tab === "sellers" && page === 1) return `/explore/${p.cat}/${p.near}`;
+  if (p.near && p.cat && !p.q && !p.open && tab === "sellers" && page === 1) return `/explore/${p.cat}/${p.near}`;
   const q = new URLSearchParams();
   if (p.near) q.set("near", p.near);
   if (p.cat) q.set("cat", p.cat);
   if (p.q) q.set("q", p.q);
   if (tab === "work") q.set("tab", "work");
+  if (p.open && tab === "sellers") q.set("open", "1");
   if (page > 1) q.set("page", String(page));
   const s = q.toString();
   return s ? `/explore?${s}` : "/explore";

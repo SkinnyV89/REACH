@@ -34,6 +34,16 @@ const publicSellerSelect = {
   fulfilment: true,
   serviceRadiusKm: true,
   whatsappNumber: true, // server-side only: used by /go/wa, never rendered
+  callNumber: true, // server-side only: used by /go/call, never rendered
+  // Collection point: rendered only when collection is on, to signed-in
+  // buyers (see collectionPoint below).
+  offersCollection: true,
+  collectionAddress: true,
+  pinLatitude: true,
+  pinLongitude: true,
+  closedUntil: true,
+  hoursNote: true,
+  hours: { select: { dayOfWeek: true, opensAt: true, closesAt: true } },
   instagramUrl: true,
   facebookUrl: true,
   tiktokUrl: true,
@@ -132,6 +142,11 @@ export function toPublicSeller(seller: SellerRow) {
     fulfilment: seller.fulfilment,
     serviceRadiusKm: seller.serviceRadiusKm,
     hasWhatsapp: Boolean(seller.whatsappNumber),
+    hasCallNumber: Boolean(seller.callNumber),
+    offersCollection: seller.offersCollection,
+    hours: seller.hours,
+    closedUntil: seller.closedUntil,
+    hoursNote: seller.hoursNote,
     logo: seller.logo,
     cover: seller.cover,
     categories: seller.categories.map((c) => c.category.name),
@@ -364,4 +379,18 @@ export async function getStorefrontPost(sellerSlug: string, code: string) {
       products: post.products.slice(0, MAX_POST_TAGS).map((p) => toItem(p.product)),
     },
   };
+}
+
+// The collection address and pin, only for a signed-in viewer and only when
+// the seller has turned collection on. Never part of toPublicSeller.
+export function collectionPoint(seller: SellerRow, signedIn: boolean) {
+  if (!seller.offersCollection || !signedIn || !seller.collectionAddress || seller.pinLatitude === null || seller.pinLongitude === null) return null;
+  return { address: seller.collectionAddress, pin: { latitude: seller.pinLatitude, longitude: seller.pinLongitude } };
+}
+
+// For /go/call: the number to call for a published storefront.
+export async function getCallTarget(sellerSlug: string) {
+  const seller = await findSeller(sellerSlug);
+  if (!seller || !isPublished(seller) || !seller.callNumber) return null;
+  return { callNumber: seller.callNumber };
 }

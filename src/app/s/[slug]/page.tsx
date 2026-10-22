@@ -8,12 +8,17 @@ import { publicFollowerLabel } from "@/lib/feed-rules";
 import { followerCount, isFollowing } from "@/lib/follows";
 import { absoluteUrl, appUrl } from "@/lib/app-url";
 import { POSTS_ON_STOREFRONT } from "@/lib/post-rules";
-import { findCampaignForStorefront, getStorefront, listPublicPosts, toPublicSeller } from "@/lib/public-storefronts";
+import { openStatus } from "@/lib/hours-rules";
+import { collectionPoint, findCampaignForStorefront, getStorefront, listPublicPosts, toPublicSeller } from "@/lib/public-storefronts";
 import { getCurrentSeller, getSession } from "@/lib/session";
 import { formatArea, parseCampaignCode } from "@/lib/storefront-rules";
 import { submitStorefrontLeadAction } from "./actions";
 import {
+  CallLink,
+  CollectionBox,
+  HoursTable,
   Listings,
+  OpenStatusLine,
   OwnerBanner,
   PostGrid,
   PublicFooter,
@@ -79,6 +84,9 @@ export default async function StorefrontPage({ params, searchParams }: Props) {
     session && !isOwner ? isFollowing(session.user.id, storefront.seller.id) : Promise.resolve(false),
   ]);
   const followerLabel = publicFollowerLabel(followers);
+  const status = openStatus(seller.hours, new Date(), seller.closedUntil);
+  const point = collectionPoint(storefront.seller, Boolean(session));
+  const area = formatArea(seller);
   const query = carryQuery(src, campaign ? code : null);
   const trackable = live && !isOwner;
 
@@ -116,12 +124,30 @@ export default async function StorefrontPage({ params, searchParams }: Props) {
           }
         />
 
+        {(status || seller.hoursNote) && (
+          <div className="mt-3 px-1">
+            <OpenStatusLine status={status} note={seller.hoursNote} />
+          </div>
+        )}
+
         {seller.hasWhatsapp && (
           <div className="mt-4">
             <WhatsAppLink
               href={`/go/wa/${seller.slug}${carryQuery(src, campaign ? code : null)}`}
               label={campaign?.callToAction ?? "Chat on WhatsApp"}
             />
+          </div>
+        )}
+        {seller.hasCallNumber && live && (
+          <div className="mt-2">
+            <CallLink sellerSlug={seller.slug} />
+          </div>
+        )}
+
+        {(seller.hours.length > 0 || seller.offersCollection) && (
+          <div className="mt-4 space-y-3">
+            {seller.offersCollection && <CollectionBox point={point} area={area} signInHref={`/sign-in?next=${encodeURIComponent(`/s/${seller.slug}`)}`} />}
+            <HoursTable slots={seller.hours} />
           </div>
         )}
 
