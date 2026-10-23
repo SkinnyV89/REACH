@@ -9,6 +9,8 @@ describe("parseChannel", () => {
     ["facebook", "FACEBOOK"],
     ["ig", "INSTAGRAM"],
     ["tiktok", "TIKTOK"],
+    ["reach", "REACH"], // REACH's own Explore and feed links
+    ["REACH", "REACH"],
   ])("maps %s", (src, channel) => {
     expect(parseChannel(src).channel).toBe(channel);
   });

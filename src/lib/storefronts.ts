@@ -18,7 +18,7 @@ export class StorefrontError extends Error {
 export async function listPlaces() {
   const places = await db.place.findMany({
     where: { isActive: true },
-    select: { id: true, name: true, province: true },
+    select: { id: true, slug: true, name: true, province: true },
     orderBy: [{ province: "asc" }, { name: "asc" }],
   });
   return [...places.filter((p) => p.province === "GAUTENG"), ...places.filter((p) => p.province !== "GAUTENG")];

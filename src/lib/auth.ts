@@ -42,7 +42,7 @@ export const auth = betterAuth({
     additionalFields: {
       // Exposed on the session for authorisation checks; never accepted from
       // sign-up input, so a user cannot make themselves an admin.
-      role: { type: "string", required: false, defaultValue: "SELLER", input: false },
+      role: { type: "string", required: false, defaultValue: "MEMBER", input: false },
     },
   },
 

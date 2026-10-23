@@ -33,7 +33,7 @@ export function formatRate(value: number | null): string {
 type Counts = { views: number; clicks: number; leads: number };
 const zero = (): Counts => ({ views: 0, clicks: 0, leads: 0 });
 
-export const CHANNEL_ORDER: Channel[] = ["WHATSAPP", "FACEBOOK", "INSTAGRAM", "TIKTOK", "UNKNOWN"];
+export const CHANNEL_ORDER: Channel[] = ["WHATSAPP", "FACEBOOK", "INSTAGRAM", "TIKTOK", "REACH", "UNKNOWN"];
 
 export async function getSellerAnalytics(sellerId: string, days: number | null, now = new Date()) {
   const since = days === null ? undefined : new Date(now.getTime() - days * 86_400_000);

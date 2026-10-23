@@ -72,7 +72,7 @@ export function postInputFromForm(form: FormData) {
 
 export type CaptureSourceValue = "GALLERY" | "IN_APP_CAMERA";
 
-const captureTime = new Intl.DateTimeFormat("en-ZA", {
+const captureTime = new Intl.DateTimeFormat("en-GB", {
   day: "numeric",
   month: "short",
   hour: "2-digit",
@@ -91,7 +91,7 @@ export const CAPTURE_EXPLAINER = {
   GALLERY: "From gallery: chosen from the seller's phone or computer. REACH can't tell when it was taken.",
 } as const;
 
-const postedDate = new Intl.DateTimeFormat("en-ZA", { day: "numeric", month: "short", year: "numeric", timeZone: "Africa/Johannesburg" });
+const postedDate = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Africa/Johannesburg" });
 
 export function formatPostedDate(date: Date): string {
   return `Posted ${postedDate.format(date)}`;

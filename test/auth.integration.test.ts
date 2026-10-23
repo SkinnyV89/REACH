@@ -64,7 +64,7 @@ run("auth (integration)", () => {
 
   it("never sets role from sign-up input", async () => {
     const user = await db.user.findUniqueOrThrow({ where: { email } });
-    expect(user.role).toBe("SELLER");
+    expect(user.role).toBe("MEMBER");
   });
 
   it("stores an argon2id hash, not the password", async () => {

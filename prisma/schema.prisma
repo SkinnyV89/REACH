@@ -4,31 +4,41 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
+  provider = "postgresql"
 }
 
 // ---------------------------------------------------------------------------
 // IDENTITY & ACCESS
 // ---------------------------------------------------------------------------
 
+// Permissions only. Whether someone sells is decided by having an active
+// Seller profile, not by their role: every account can buy, and selling is
+// something an account adds.
 enum UserRole {
   ADMIN
-  SELLER
+  SELLER // legacy: no longer assigned; existing users were moved to MEMBER
+  MEMBER
 }
 
 model User {
   id            String   @id @default(uuid())
   email         String   @unique
-  role          UserRole @default(SELLER)
+  role          UserRole @default(MEMBER)
   name          String   @default("")
   image         String?
   emailVerified Boolean  @default(false) @map("email_verified")
+  // The town a buyer browses near (chosen, or snapped from "Use my location").
+  // Only the town is kept, never coordinates.
+  placeId       String?  @map("place_id")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
-  seller    Seller?
-  auditLogs AuditLog[]
-  aiJobs    AIJob[]
+  seller        Seller?
+  auditLogs     AuditLog[]
+  aiJobs        AIJob[]
+  follows       Follow[]
+  notifications Notification[]
+  place         Place?         @relation(fields: [placeId], references: [id], onDelete: SetNull)
 
   sessions Session[]
   accounts Account[]
@@ -136,6 +146,7 @@ model Place {
   createdAt  DateTime @default(now()) @map("created_at")
 
   sellers Seller[]
+  users   User[]
 
   @@index([province, name])
   @@map("places")
@@ -214,6 +225,8 @@ model Seller {
   cover                Media?                @relation("SellerCover", fields: [coverMediaId], references: [id], onDelete: SetNull)
   media                Media[]               @relation("SellerMedia")
   posts                Post[]
+  followers            Follow[]
+  notificationsAbout   Notification[]
   productSlugRedirects ProductSlugRedirect[]
   categories           SellerCategory[]
   products             Product[]
@@ -222,6 +235,10 @@ model Seller {
   attributionEvents    AttributionEvent[]
 
   @@index([storefrontPublishedAt])
+  // Explore search: trigram indexes (pg_trgm) tolerate typos and work across
+  // languages, unlike English word-stemming.
+  @@index([businessName(ops: raw("gin_trgm_ops"))], type: Gin, map: "sellers_business_name_trgm_idx")
+  @@index([tagline(ops: raw("gin_trgm_ops"))], type: Gin, map: "sellers_tagline_trgm_idx")
   @@map("sellers")
 }
 
@@ -303,6 +320,7 @@ model Product {
   @@unique([sellerId, slug])
   @@index([sellerId, status])
   @@index([categoryId])
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "products_name_trgm_idx")
   @@map("products")
 }
 
@@ -419,13 +437,17 @@ model Post {
   createdAt   DateTime   @default(now()) @map("created_at")
   updatedAt   DateTime   @updatedAt @map("updated_at")
 
-  seller   Seller             @relation(fields: [sellerId], references: [id], onDelete: Cascade)
-  media    PostMedia[]
-  products PostProduct[]
-  leads    Lead[]
-  events   AttributionEvent[]
+  seller        Seller             @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  media         PostMedia[]
+  products      PostProduct[]
+  leads         Lead[]
+  events        AttributionEvent[]
+  notifications Notification[]
 
   @@index([sellerId, status, publishedAt])
+  // Feed: newest published posts first, with the public code as the
+  // tie-breaker (so feed cursors never contain internal ids).
+  @@index([status, publishedAt(sort: Desc), code(sort: Desc)])
   @@map("posts")
 }
 
@@ -455,6 +477,54 @@ model PostProduct {
   @@id([postId, productId])
   @@index([productId])
   @@map("post_products")
+}
+
+// ---------------------------------------------------------------------------
+// FOLLOWING & NOTIFICATIONS
+// ---------------------------------------------------------------------------
+
+// A user following a seller. Private: sellers see how many follow them, never
+// who. Buyers see and manage their own list.
+model Follow {
+  userId    String   @map("user_id")
+  sellerId  String   @map("seller_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  seller Seller @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  @@id([userId, sellerId])
+  @@index([sellerId, createdAt])
+  @@map("follows")
+}
+
+enum NotificationType {
+  NEW_POST // a followed seller published a post (grouped while unread)
+}
+
+// In-app notifications. NEW_POST notifications are grouped: while one from a
+// seller is unread, a new post updates it (count + 1, latest post) instead of
+// adding another. Email delivery can be added later as a separate table.
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String           @map("user_id")
+  type      NotificationType
+  sellerId  String           @map("seller_id")
+  postId    String?          @map("post_id") // the latest post it's about
+  // Every post this notification has counted, so a post is never counted twice.
+  postIds   String[]         @default([]) @map("post_ids")
+  count     Int              @default(1)
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @default(now()) @map("updated_at")
+  readAt    DateTime?        @map("read_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  seller Seller @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  post   Post?  @relation(fields: [postId], references: [id], onDelete: SetNull)
+
+  @@index([userId, updatedAt(sort: Desc)])
+  @@index([postId])
+  @@map("notifications")
 }
 
 // ---------------------------------------------------------------------------
@@ -562,6 +632,7 @@ enum LeadChannel {
   INSTAGRAM
   TIKTOK
   UNKNOWN
+  REACH // REACH's own discovery: Explore and the feed (?src=reach)
 }
 
 enum LeadSource {

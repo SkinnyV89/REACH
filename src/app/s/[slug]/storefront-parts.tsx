@@ -62,7 +62,7 @@ export function AvailabilityNote({ item }: { item: PublicItem }) {
   );
 }
 
-export function StorefrontHeader({ seller }: { seller: PublicSeller }) {
+export function StorefrontHeader({ seller, actions }: { seller: PublicSeller; actions?: ReactNode }) {
   const area = formatArea(seller);
   const modes = serviceModeLines(seller.fulfilment, seller.layout as LayoutValue, seller.serviceRadiusKm);
   return (
@@ -102,6 +102,7 @@ export function StorefrontHeader({ seller }: { seller: PublicSeller }) {
             {seller.tagline && <p className="mt-2 text-ink-900">{seller.tagline}</p>}
           </div>
         </div>
+        {actions && <div className="mt-4 flex flex-wrap items-center gap-3">{actions}</div>}
         {/* Facts only: nothing here is a rating or an estimate. */}
         <ul className="mt-4 flex flex-wrap gap-2 text-xs" aria-label="About this seller">
           {modes.map((m) => (

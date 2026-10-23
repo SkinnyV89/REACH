@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { CONTACT_EMAIL } from "@/lib/site";
 
 export const metadata: Metadata = { title: "Privacy notice · REACH" };
 
 // DRAFT, pending legal review. Plain-language notice covering the data the
 // product actually collects today. Update it whenever collection changes.
-const CONTACT_EMAIL = "malingaskinny@gmail.com";
 const LAST_UPDATED = "21 October 2026";
 
 export default function PrivacyPage() {
@@ -57,6 +57,39 @@ export default function PrivacyPage() {
               holds a random code. It does not contain your name, number or any other personal details, and we do not
               use it to track you on other websites. It expires after 180 days. To limit spam, we also keep a coded
               (hashed) version of your internet address for a short time; we do not store the address itself.
+            </p>
+          </section>
+
+          <section>
+            <h2>If you have a REACH account</h2>
+            <ul>
+              <li>
+                <strong>What we collect:</strong> your name, email address and password (stored in encrypted form),
+                the sellers you follow, and your notifications.
+              </li>
+              <li>
+                <strong>Who sees it:</strong> only you can see which sellers you follow. Sellers see how many people
+                follow them, never who. From 10 followers, the number is shown on their storefront.
+              </li>
+              <li>
+                <strong>Notifications:</strong> when a seller you follow posts, you get an in-app notification. We
+                don&apos;t send emails or messages about it.
+              </li>
+              <li>
+                <strong>Deleting:</strong> you can delete your account yourself on the Account page, which removes your
+                sign-in, follows and notifications. If you also sell, email us and we&apos;ll delete it for you.
+              </li>
+            </ul>
+          </section>
+
+          <section>
+            <h2>If you use Explore</h2>
+            <p className="mt-2">
+              Explore shows sellers near a town you choose. If you tap &ldquo;Use my location&rdquo;, your browser asks
+              you first; your position is rounded to about 1 km on your device, matched to the nearest town, and then
+              discarded. We keep only the town: on your account if you&apos;re signed in, otherwise in a cookie called{" "}
+              <code>reach_near</code> that holds just the town name (it expires after a year). Explore is sorted by
+              distance, recent activity and complete storefronts; rankings can&apos;t be bought.
             </p>
           </section>
 

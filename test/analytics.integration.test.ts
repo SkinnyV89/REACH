@@ -138,6 +138,7 @@ run("analytics (integration)", () => {
       FACEBOOK: { views: 2, clicks: 1, leads: 2 },
       INSTAGRAM: { views: 0, clicks: 0, leads: 0 },
       TIKTOK: { views: 1, clicks: 0, leads: 0 },
+      REACH: { views: 0, clicks: 0, leads: 0 },
       UNKNOWN: { views: 1, clicks: 0, leads: 1 },
     });
   });

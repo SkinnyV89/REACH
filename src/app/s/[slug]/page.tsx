@@ -1,11 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { FollowButton } from "@/components/follow-button";
 import { LeadForm, ViewTracker } from "@/components/public-widgets";
+import { PublicTopBar } from "@/components/public-top-bar";
+import { publicFollowerLabel } from "@/lib/feed-rules";
+import { followerCount, isFollowing } from "@/lib/follows";
 import { absoluteUrl, appUrl } from "@/lib/app-url";
 import { POSTS_ON_STOREFRONT } from "@/lib/post-rules";
 import { findCampaignForStorefront, getStorefront, listPublicPosts, toPublicSeller } from "@/lib/public-storefronts";
-import { getCurrentSeller } from "@/lib/session";
+import { getCurrentSeller, getSession } from "@/lib/session";
 import { formatArea, parseCampaignCode } from "@/lib/storefront-rules";
 import { submitStorefrontLeadAction } from "./actions";
 import {
@@ -67,15 +71,20 @@ export default async function StorefrontPage({ params, searchParams }: Props) {
   if (!live && !isOwner) return <Unavailable />;
 
   const seller = toPublicSeller(storefront.seller);
-  const [campaign, posts] = await Promise.all([
+  const session = await getSession();
+  const [campaign, posts, followers, following] = await Promise.all([
     findCampaignForStorefront(storefront.seller.id, code),
     listPublicPosts(storefront.seller.id, { take: POSTS_ON_STOREFRONT }),
+    followerCount(storefront.seller.id),
+    session && !isOwner ? isFollowing(session.user.id, storefront.seller.id) : Promise.resolve(false),
   ]);
+  const followerLabel = publicFollowerLabel(followers);
   const query = carryQuery(src, campaign ? code : null);
   const trackable = live && !isOwner;
 
   return (
     <div className="min-h-screen bg-ink-100">
+      <PublicTopBar next={`/s/${seller.slug}`} />
       {trackable && <ViewTracker payload={{ storefront: seller.slug, item: null, type: "VIEW", src, c: campaign ? code : null }} />}
       {isOwner && <OwnerBanner live={live} manageHref="/storefront" />}
 
@@ -87,7 +96,25 @@ export default async function StorefrontPage({ params, searchParams }: Props) {
           </section>
         )}
 
-        <StorefrontHeader seller={seller} />
+        <StorefrontHeader
+          seller={seller}
+          actions={
+            (live && !isOwner) || followerLabel ? (
+              <>
+                {live && !isOwner && (
+                  <FollowButton
+                    sellerSlug={seller.slug}
+                    businessName={seller.businessName}
+                    following={following}
+                    signedIn={Boolean(session)}
+                    returnPath={`/s/${seller.slug}`}
+                  />
+                )}
+                {followerLabel && <span className="text-sm text-ink-700">{followerLabel}</span>}
+              </>
+            ) : undefined
+          }
+        />
 
         {seller.hasWhatsapp && (
           <div className="mt-4">

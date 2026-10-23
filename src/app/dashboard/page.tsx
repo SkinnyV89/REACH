@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { FULFILMENT_OPTIONS, formatWhatsappNumber, provinceLabel } from "@/lib/seller-profile";
+import { PUBLIC_FOLLOWER_THRESHOLD } from "@/lib/feed-rules";
+import { followerCount } from "@/lib/follows";
 import { requireSeller } from "@/lib/session";
 import { SellerHeader } from "@/components/seller-header";
 import { countProducts } from "@/lib/products";
@@ -57,7 +59,7 @@ export default async function DashboardPage({
 }) {
   const { session, seller } = await requireSeller();
   const { welcome } = await searchParams;
-  const [categories, productCounts, leadCount] = await Promise.all([
+  const [categories, productCounts, leadCount, followers] = await Promise.all([
     db.sellerCategory.findMany({
     where: { sellerId: seller.id },
     select: { category: { select: { name: true } } },
@@ -65,6 +67,7 @@ export default async function DashboardPage({
     }),
     countProducts(seller.id),
     db.lead.count({ where: { sellerId: seller.id } }),
+    followerCount(seller.id),
   ]);
   const steps = journey(productCounts.active, seller.storefrontPublishedAt !== null, leadCount);
   const firstName = session.user.name.split(" ")[0] || "there";
@@ -98,6 +101,16 @@ export default async function DashboardPage({
         <h1 className="text-2xl font-bold text-ink-900 sm:text-3xl">Hi {firstName}, welcome to REACH</h1>
         <p className="mt-2 text-ink-700">
           Let&apos;s get {seller.businessName} in front of customers beyond the people you already know.
+        </p>
+        <p className="mt-3 inline-flex flex-wrap items-baseline gap-x-2 rounded-xl bg-white px-4 py-2 text-sm text-ink-700">
+          <span>
+            <span className="text-lg font-bold text-ink-900">{followers}</span> {followers === 1 ? "follower" : "followers"}
+          </span>
+          <span className="text-xs text-ink-500">
+            {followers < PUBLIC_FOLLOWER_THRESHOLD
+              ? `Only you can see this until you reach ${PUBLIC_FOLLOWER_THRESHOLD}; then it shows on your storefront.`
+              : "Shown on your storefront. Who follows you stays private."}
+          </span>
         </p>
 
         <div className="mt-8 grid gap-6 lg:grid-cols-5">

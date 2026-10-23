@@ -19,9 +19,15 @@ export default function robots(): MetadataRoute.Robots {
         "/products",
         "/campaigns",
         "/leads",
+        "/feed",
+        "/following",
+        "/notifications",
+        "/account",
+        "/home",
         "/analytics",
       ],
     },
     host: appUrl(),
+    sitemap: `${appUrl()}/sitemap.xml`,
   };
 }
